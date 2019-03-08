@@ -80,17 +80,65 @@ data(package="rethinking")
 data("WaffleDivorce")
 d2 <- WaffleDivorce
 #fit Gaussian model and obtain a posterior distribution
-wd.postdist <- map(alist(Divorce~dnorm(mu, sigma), mu <- a+bR*Marriage+bA*MedianAgeMarriage, a~dnorm(10,10), bR~dnorm(0,1), bA ~ dnorm(0,1), sigma~dunif(0,10)), data=d2)
+wd.postdist <- alist(Divorce~dnorm(mu, sigma), 
+                     mu <- a+bR*Marriage+bA*MedianAgeMarriage, 
+                     a~dnorm(10,10), 
+                     bR~dnorm(0,1), 
+                     bA ~ dnorm(0,1), 
+                     sigma~dunif(0,10))
+wd.postdist <- map(wd.postdist, data=d2)
 precis(wd.postdist)
-plot( precis(wd.postdist) )
+plot(precis(wd.postdist))
+
+#1. investigate predictor residual plots
+#(a) regress predictor against predictor
+wd.postdistR <- alist(Marriage~dnorm(mu, sigma), 
+                     mu <- a+bA*MedianAgeMarriage, 
+                     a~dnorm(10,10), 
+                     bA ~ dnorm(0,1), 
+                     sigma~dunif(0,10))
+wd.postdistR <- map(wd.postdistR, data=d2)
+precis(wd.postdistR)
+plot(precis(wd.postdistR))
+
+wd.postdistA <- alist(MedianAgeMarriage~dnorm(mu, sigma), 
+                       mu <- a+bR*Marriage, 
+                       a~dnorm(10,10), 
+                       bR ~ dnorm(0,1), 
+                       sigma~dunif(0,10))
+wd.postdistA <- map(wd.postdistA, data=d2)
+precis(wd.postdistA)
+plot(precis(wd.postdistA))
+
+#(b) compute and plot residuals for each predictor against outcome
+mu.resR <- coef(wd.postdistR)['a'] + coef(wd.postdistR)['bA']*d2$MedianAgeMarriage
+m.resR <- d2$Marriage - mu.resR
+
+mu.resA <- coef(wd.postdistA)['a'] + coef(wd.postdistA)['bR']*d2$Marriage
+m.resA <- d2$MedianAgeMarriage - mu.resA
+
+#(c) potential plots
+par(mfrow=c(2,2))
+plot(d2$MedianAgeMarriage, d2$Marriage)
+plot(m.resR, d2$Divorce)
+plot(d2$MedianAgeMarriage, d2$Marriage)
+plot(m.resA, d2$Divorce)
+dev.off()
+
+#2. counterfactual plot
+
+#3. posterior prediction plots
+postcheck(wd.postdist)
+dev.off()
 
 
-
-
-
-
-
-
+#===============================================================
+#chapter 5: Causality terror in multivariate models
+N <- 100
+x.real <- rnorm(N)
+x.spur <- rnorm(N, x.real)
+y <- rnorm(N, x.real)
+dSS <- data.frame(y, x.real, x.spur)
 
 
 
