@@ -38,7 +38,7 @@ flist2 <- alist(height~dnorm(mu,sigma),
                a~dnorm(178,100), 
                b~dnorm(0,10), 
                sigma~dunif(0,50))
-postdist2 <- map(flist2, data = d)
+postdist2 <- map(flist2, data=d)
 precis(postdist2)
 
 #sampling from the posterior distribution
@@ -80,9 +80,35 @@ data(package="rethinking")
 data("WaffleDivorce")
 d2 <- WaffleDivorce
 #fit Gaussian model and obtain a posterior distribution
-wd.postdist <- map(alist(Divorce~dnorm(mu, sigma), mu <- a+bR*Marriage+bA*MedianAgeMarriage, a~dnorm(10,10), bR~dnorm(0,1), bA ~ dnorm(0,1), sigma~dunif(0,10)), data=d2)
+wd.postdist <- alist(Divorce~dnorm(mu, sigma), 
+                         mu <- a+bR*Marriage+bA*MedianAgeMarriage, 
+                         a~dnorm(10,10), 
+                         bR~dnorm(0,1), 
+                         bA~dnorm(0,1), 
+                         sigma~dunif(0,10) 
+                  )
+wd.postdist <- map(wd.postdist, data=d2)
 precis(wd.postdist)
-plot( precis(wd.postdist) )
+plot(precis(wd.postdist))
+
+#plotting residuals
+#(a) predictor on predictor
+wd.postdistPP<-alist(Marriage~dnorm(mu, sigma), 
+                         mu <- a + bA*MedianAgeMarriage, 
+                         a ~ dnorm(10,10), 
+                         bA ~ dnorm(0,1), 
+                         sigma~dunif(0,10) 
+                   )
+
+wd.postdistPP<-map(wd.postdistPP, data=d2)
+precis(wd.postdistPP)
+plot(precis(wd.postdistPP))
+
+#(b) compute residuals (distance of each outcome from expectation)
+mu<-coef(wd.postdist)["a"]+coef(wd.postdist)["b"]*d2$MedianAgeMarriage
+resid.outcome <- d2$Marriage-mu
+plot(d2$MedianAgeMarriage,d2$Marriage)
+lines()
 
 
 
