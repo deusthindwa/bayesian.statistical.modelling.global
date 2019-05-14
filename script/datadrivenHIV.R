@@ -1,7 +1,7 @@
 #written by Deus Thindwa
 #11/04/2019
 
-DDHP.packages <-c("foreign","tidyverse","janitor","readstata13","rstan","rethinking")
+DDHP.packages <-c("foreign","tidyverse","janitor","readstata13","rethinking","brms")
 lapply(DDHP.packages, library, character.only=TRUE)
 
 #load male questionnaire csv
@@ -17,6 +17,10 @@ colnames(male.DS) <-c("mcsp","csp","clustno","houseno","age","resid","educ","emp
                        "hiv_condoms","hiv_1part","stdcounsel","hivtest","paidsex","hivres","sexinfl","agepart")
 
 #====================recode outcome and potential covariates====================
+#integerize the cluster and household ids
+male.DSF$clustno <- as.integer(male.DSF$clustno)
+male.DSF$houseno <- as.integer(male.DSF$houseno)
+
 # MCSP (multiple and concurrent sexual partnership) = SM (serial monogamy) + CSP (concurrent sexual partnership)
 male.DSF <-subset(male.DS,mcsp>=1)
 male.DSF$mcsp <-if_else(male.DSF$mcsp==1,0,1)
@@ -259,7 +263,7 @@ male.DSF$fertpref <-as.numeric(recode_factor(male.DSF$fertpref,`doesnt want`=0,`
 male.DSF$paidsex <-as.numeric(recode_factor(male.DSF$paidsex,`no`=0,`yes`=1))
 male.DSF$agepartgp <-as.numeric(recode_factor(male.DSF$agepartgp,`<18y`=0,`18-29y`=1,`30+`=2))
 
-#fit binomial models and sample from posterior distribution using Halmitonian Monte Carlo
+#fit 4 potential binomial models and sample from posterior distribution using Halmitonian Monte Carlo
 pd_sm <-map2stan(
   alist(
       sm ~ dbinom(1,sm_p),
@@ -268,13 +272,149 @@ pd_sm <-map2stan(
       c(a,b_agegp,b_resid,b_educ,b_employ,b_rel,b_windex,b_travel,b_partpreg,b_condom,b_mmc,b_mstatus,b_agesexgp,b_fertpref,b_paidsex,b_agepartgp) ~ dnorm(0,10)),
       data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
 
+#model1: without random-effects
+m1.pd_sm <-map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ,
+    c(b_agegp,b_resid,b_educ,b_employ) ~ dnorm(0,1),
+    a ~ dnorm(0,1)
+  ),
+  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
+
+m1.pd_sm <-map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+b_agegp[agegp]+b_resid[resid]+b_educ[educ]+b_employ[employ],
+    b_agegp[agegp] ~ dnorm(0,1),
+    b_resid[resid] ~ dnorm(0,1),
+    b_educ[educ] ~ dnorm(0,1),
+    b_employ[employ] ~ dnorm(0,1),
+    a ~ dnorm(0,1)
+  ),
+  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
+
+
+#model2: with household random-effects variable
+m2.pd_sm <-map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+a_houseno[houseno]+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ,
+    c(b_agegp,b_resid,b_educ,b_employ) ~ dnorm(0,1),
+    a_houseno[houseno] ~ dnorm(0,sigma_houseno),
+    a ~ dnorm(0,1),
+    sigma_houseno ~ dcauchy(0,1)
+  ),
+  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
+
+m2.pd_sm <-map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+a_houseno[houseno]+b_agegp[agegp]+b_resid[resid]+b_educ[educ]+b_employ[employ],
+    b_agegp[agegp] ~ dnorm(0,1),
+    b_resid[resid] ~ dnorm(0,1),
+    b_educ[educ] ~ dnorm(0,1),
+    b_employ[employ] ~ dnorm(0,1),
+    a_houseno[houseno] ~ dnorm(0,sigma_houseno),
+    a ~ dnorm(0,1),
+    sigma_houseno ~ dcauchy(0,1)
+  ),
+  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
+
+
+#model3: with cluster/community random-effects variable
+m3.pd_sm <-map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+a_clustno[clustno]+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ,
+    c(b_agegp,b_resid,b_educ,b_employ) ~ dnorm(0,1),
+    a_clustno[clustno] ~ dnorm(0,sigma_clustno),
+    a ~ dnorm(0,1),
+    sigma_clustno ~ dcauchy(0,1)
+  ),
+  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500)
+
+m3.pd_sm <-map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+a_clustno[clustno]+b_agegp[agegp]+b_resid[resid]+b_educ[educ]+b_employ[employ],
+    b_agegp[agegp] ~ dnorm(0,1),
+    b_resid[resid] ~ dnorm(0,1),
+    b_educ[educ] ~ dnorm(0,1),
+    b_employ[employ] ~ dnorm(0,1),
+    a_clustno[clustno] ~ dnorm(0,sigma_clustno),
+    a ~ dnorm(0,1),
+    sigma_clustno ~ dcauchy(0,1)
+  ),
+  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
+
+#model4: with household and cluster/community random-effects variables
+m4.pd_sm <-map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+a_clustno[clustno]+a_houseno[houseno]+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ,
+    c(b_agegp,b_resid,b_educ,b_employ) ~ dnorm(0,1),
+    a_clustno[clustno] ~ dnorm(0,sigma_clustno),
+    a_houseno[houseno] ~ dnorm(0,sigma_houseno),
+    a ~ dnorm(0,1),
+    sigma_clustno ~ dcauchy(0,1),
+    sigma_houseno ~ dcauchy(0,1)
+  ),
+  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500)
+
+m3.pd_sm <-map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+a_houseno[houseno]+a_clustno[clustno]+b_agegp[agegp]+b_resid[resid]+b_educ[educ]+b_employ[employ],
+    b_agegp[agegp] ~ dnorm(0,1),
+    b_resid[resid] ~ dnorm(0,1),
+    b_educ[educ] ~ dnorm(0,1),
+    b_employ[employ] ~ dnorm(0,1),
+    a_houseno[houseno] ~ dnorm(0,sigma_houseno),
+    a_clustno[clustno] ~ dnorm(0,sigma_houseno),
+    a ~ dnorm(0,1),
+    sigma_houseno ~ dcauchy(0,1),
+    sigma_clustno ~ dcauchy(0,1)
+    
+  ),
+  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
+
+#compare model predictions through WAIC
+compare(m1.pd_sm,m2.pd_sm,m3.pd_sm,m4.pd_sm)
+
 #trace plot to see if the chains are health
-plot(pd_sm)
+plot(m1.pd_sm)
+plot(m2.pd_sm)
+plot(m3.pd_sm)
+plot(m4.pd_sm)
 
 #investigate correlation between predictors
-pairs(pd_sm)
+pairs(m1.pd_sm)
+pairs(m2.pd_sm)
+pairs(m3.pd_sm)
+pairs(m4.pd_sm)
 
 #estimate posterior mean and 95% credible intervals using maximum a posteriori
-precis(pd_sm, depth=2)
+precis(m1.pd_sm, depth=2)
+precis(m2.pd_sm, depth=2)
+precis(m3.pd_sm, depth=2)
+precis(m4.pd_sm, depth=2)
+
+posterior1 <- extract.samples(m1.pd_sm)
+p.age15_19 <- logistic(posterior1$a)
+p.age20_24 <- logistic(posterior1$a+posterior1$b_agegp)
+diff.age <- p.age20_24-p.age15_19
+quantile(diff.age, c(0.025,0.5,0.975))
+
+
+
+
+
+
+
+
+
+
+
 
 
