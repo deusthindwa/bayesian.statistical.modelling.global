@@ -1,11 +1,11 @@
 #written by Deus Thindwa
 #11/04/2019
 
-DDHP.packages <-c("foreign","tidyverse","janitor","readstata13","rethinking","brms")
+DDHP.packages <-c("foreign","tidyverse","janitor","readstata13","rethinking","brms","rstan","coda","plyr")
 lapply(DDHP.packages, library, character.only=TRUE)
 
 #load male questionnaire csv
-male.dhs <-as_tibble(read.dta13("/Users/dthindwa/Rproject/drivenHIV/data/male.dta"))
+male.dhs <-as_tibble(read.dta13("/Users/lsh1703394/Rproject/drivenHIV/data/male.dta"))
 
 #subset the dataset to get appropriate variables
 male.DS <-select(male.dhs,mv766b,mv854a,mv001,mv002,mv012,mv025,mv106,mv731,mv130,mv190,mv167,mv213,mv761,mv483,
@@ -134,6 +134,9 @@ male.DSF$agepartgp <-recode_factor(male.DSF$agepartgp,`0`="<18y",`1`="18-29y",`2
 
 #====================tabulating predictor by outcome (Table 1.0)====================
 mean(male.DSF$age); sd(male.DSF$age)
+ddply(male.DSF, .(mcsp==1), summarize, mean=mean(age),sd=sd(age))
+ddply(male.DSF, .(is.na(sm)), summarize, mean=mean(age), sd=sd(age))
+ddply(male.DSF, .(is.na(csp)), summarize, mean=mean(age), sd=sd(age))
 male.DSF %>% tabyl(agegp,show_na=FALSE) %>% adorn_pct_formatting(digits=1)
 male.DSF %>% tabyl(agegp,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
 male.DSF %>% tabyl(agegp,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
@@ -190,6 +193,9 @@ male.DSF %>% tabyl(mstatus,csp,show_na=FALSE) %>% adorn_percentages("col") %>% a
 chisq.test(male.DSF$mstatus,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$mstatus,male.DSF$csp, correct=TRUE)
 
 mean(male.DSF$agesex); sd(male.DSF$agesex)
+ddply(male.DSF, .(mcsp==1), summarize, mean=mean(agesex),sd=sd(agesex))
+ddply(male.DSF, .(is.na(sm)), summarize, mean=mean(agesex), sd=sd(agesex))
+ddply(male.DSF, .(is.na(csp)), summarize, mean=mean(agesex), sd=sd(agesex))
 male.DSF %>% tabyl(agesexgp,show_na=FALSE) %>% adorn_pct_formatting(digits=1) 
 male.DSF %>% tabyl(agesexgp,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
 male.DSF %>% tabyl(agesexgp,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
@@ -235,6 +241,10 @@ male.DSF %>% tabyl(sexinfl,sm,show_na=FALSE) %>% adorn_percentages("col") %>% ad
 male.DSF %>% tabyl(sexinfl,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
 chisq.test(male.DSF$sexinfl,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$sexinfl,male.DSF$csp, correct=TRUE)
 
+mean(male.DSF$agepart); sd(male.DSF$agepart)
+ddply(male.DSF, .(mcsp==1), summarize, mean=mean(agepart),sd=sd(agepart))
+ddply(male.DSF, .(is.na(sm)), summarize, mean=mean(agepart), sd=sd(agepart))
+ddply(male.DSF, .(is.na(csp)), summarize, mean=mean(agepart), sd=sd(agepart))
 male.DSF %>% tabyl(agepartgp,show_na=FALSE) %>% adorn_pct_formatting(digits=1) 
 male.DSF %>% tabyl(agepartgp,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
 male.DSF %>% tabyl(agepartgp,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
@@ -264,14 +274,6 @@ male.DSF$paidsex <-as.numeric(recode_factor(male.DSF$paidsex,`no`=0,`yes`=1))
 male.DSF$agepartgp <-as.numeric(recode_factor(male.DSF$agepartgp,`<18y`=0,`18-29y`=1,`30+`=2))
 
 #fit 4 potential binomial models and sample from posterior distribution using Halmitonian Monte Carlo
-pd_sm <-map2stan(
-  alist(
-      sm ~ dbinom(1,sm_p),
-      logit(sm_p) <- a+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ+b_rel*rel+b_windex*windex+b_travel*travel+b_partpreg*partpreg+
-        b_condom*condom+b_mmc*mmc+b_mstatus*mstatus+b_agesexgp*agesexgp+b_fertpref*fertpref+b_paidsex*paidsex+b_agepartgp*agepartgp,
-      c(a,b_agegp,b_resid,b_educ,b_employ,b_rel,b_windex,b_travel,b_partpreg,b_condom,b_mmc,b_mstatus,b_agesexgp,b_fertpref,b_paidsex,b_agepartgp) ~ dnorm(0,10)),
-      data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
-
 #model1: without random-effects
 m1.pd_sm <-map2stan(
   alist(
@@ -280,7 +282,7 @@ m1.pd_sm <-map2stan(
     c(b_agegp,b_resid,b_educ,b_employ) ~ dnorm(0,1),
     a ~ dnorm(0,1)
   ),
-  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
+  data=as.data.frame(na.omit(male.DSF)),chains=4,iter=4000,warmup=1000)
 
 m1.pd_sm <-map2stan(
   alist(
@@ -292,7 +294,7 @@ m1.pd_sm <-map2stan(
     b_employ[employ] ~ dnorm(0,1),
     a ~ dnorm(0,1)
   ),
-  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
+  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500,cores=4)
 
 
 #model2: with household random-effects variable
@@ -319,7 +321,7 @@ m2.pd_sm <-map2stan(
     a ~ dnorm(0,1),
     sigma_houseno ~ dcauchy(0,1)
   ),
-  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
+  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500,cores=4)
 
 
 #model3: with cluster/community random-effects variable
@@ -346,7 +348,7 @@ m3.pd_sm <-map2stan(
     a ~ dnorm(0,1),
     sigma_clustno ~ dcauchy(0,1)
   ),
-  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
+  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500,cores=4)
 
 #model4: with household and cluster/community random-effects variables
 m4.pd_sm <-map2stan(
@@ -407,6 +409,13 @@ diff.age <- p.age20_24-p.age15_19
 quantile(diff.age, c(0.025,0.5,0.975))
 
 
+pd_sm <-map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ+b_rel*rel+b_windex*windex+b_travel*travel+b_partpreg*partpreg+
+      b_condom*condom+b_mmc*mmc+b_mstatus*mstatus+b_agesexgp*agesexgp+b_fertpref*fertpref+b_paidsex*paidsex+b_agepartgp*agepartgp,
+    c(a,b_agegp,b_resid,b_educ,b_employ,b_rel,b_windex,b_travel,b_partpreg,b_condom,b_mmc,b_mstatus,b_agesexgp,b_fertpref,b_paidsex,b_agepartgp) ~ dnorm(0,10)),
+  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
 
 
 
