@@ -5,7 +5,7 @@ DDHP.packages <-c("foreign","tidyverse","janitor","readstata13","rethinking","br
 lapply(DDHP.packages, library, character.only=TRUE)
 
 #load male questionnaire csv
-male.dhs <-as_tibble(read.dta13("/Users/lsh1703394/Rproject/drivenHIV/data/male.dta"))
+male.dhs <-as_tibble(read.dta13("/Users/dthindwa/Rproject/drivenHIV/data/male.dta"))
 
 #subset the dataset to get appropriate variables
 male.DS <-select(male.dhs,mv766b,mv854a,mv001,mv002,mv012,mv025,mv106,mv731,mv130,mv190,mv167,mv213,mv761,mv483,
@@ -17,9 +17,6 @@ colnames(male.DS) <-c("mcsp","csp","clustno","houseno","age","resid","educ","emp
                        "hiv_condoms","hiv_1part","stdcounsel","hivtest","paidsex","hivres","sexinfl","agepart")
 
 #====================recode outcome and potential covariates====================
-#integerize the cluster and household ids
-male.DSF$clustno <- as.integer(male.DSF$clustno)
-male.DSF$houseno <- as.integer(male.DSF$houseno)
 
 # MCSP (multiple and concurrent sexual partnership) = SM (serial monogamy) + CSP (concurrent sexual partnership)
 male.DSF <-subset(male.DS,mcsp>=1)
@@ -274,148 +271,112 @@ male.DSF$paidsex <-as.numeric(recode_factor(male.DSF$paidsex,`no`=0,`yes`=1))
 male.DSF$agepartgp <-as.numeric(recode_factor(male.DSF$agepartgp,`<18y`=0,`18-29y`=1,`30+`=2))
 
 #fit 4 potential binomial models and sample from posterior distribution using Halmitonian Monte Carlo
+
+#integerize the cluster and household ids so they are contiguous.
+male.DSF$clustno <- as.integer(as.factor(male.DSF$clustno))
+male.DSF$houseno <- as.integer(as.factor(male.DSF$houseno))
+sort(unique(male.DSF$clustno))
+sort(unique(male.DSF$houseno))
+
 #model1: without random-effects
-m1.pd_sm <-map2stan(
+set.seed(9)
+m1.pd_sm <- map2stan(
   alist(
     sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ,
-    c(b_agegp,b_resid,b_educ,b_employ) ~ dnorm(0,1),
-    a ~ dnorm(0,1)
+    logit(sm_p) <- a+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ+b_rel*rel+b_windex*windex+b_travel*travel+b_partpreg*partpreg
+                    +b_condom*condom+b_mmc*mmc+b_mstatus*mstatus+b_agesexgp*agesexgp+b_fertpref*fertpref+b_paidsex*paidsex+b_agepartgp*agepartgp,
+    c(b_agegp,b_resid,b_educ,b_employ,b_rel,b_windex,b_travel,b_partpreg) ~ dnorm(0,5),
+    c(b_condom,b_mmc,b_mstatus,b_agesexgp,b_fertpref,b_paidsex,b_agepartgp) ~ dnorm(0,5),
+    a ~ dnorm(0,5)
   ),
-  data=as.data.frame(na.omit(male.DSF)),chains=4,iter=4000,warmup=1000)
+  data=as.data.frame(na.omit(male.DSF)),chains=4,iter=4000,warmup=1000,cores=2,rng_seed=9)
 
-m1.pd_sm <-map2stan(
-  alist(
-    sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+b_agegp[agegp]+b_resid[resid]+b_educ[educ]+b_employ[employ],
-    b_agegp[agegp] ~ dnorm(0,1),
-    b_resid[resid] ~ dnorm(0,1),
-    b_educ[educ] ~ dnorm(0,1),
-    b_employ[employ] ~ dnorm(0,1),
-    a ~ dnorm(0,1)
-  ),
-  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500,cores=4)
-
+#model1 convergence correlation checks
+plot(m1.pd_sm)
+pairs(m1.pd_sm)
+summary(m1.pd_sm)
 
 #model2: with household random-effects variable
-m2.pd_sm <-map2stan(
+set.seed(8)
+m2.pd_sm <- map2stan(
   alist(
     sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+a_houseno[houseno]+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ,
-    c(b_agegp,b_resid,b_educ,b_employ) ~ dnorm(0,1),
-    a_houseno[houseno] ~ dnorm(0,sigma_houseno),
-    a ~ dnorm(0,1),
-    sigma_houseno ~ dcauchy(0,1)
+    logit(sm_p) <- a+a_houseno[houseno]+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ+b_rel*rel+b_windex*windex+b_travel*travel+b_partpreg*partpreg
+    +b_condom*condom+b_mmc*mmc+b_mstatus*mstatus+b_agesexgp*agesexgp+b_fertpref*fertpref+b_paidsex*paidsex+b_agepartgp*agepartgp,
+    c(b_agegp,b_resid,b_educ,b_employ,b_rel,b_windex,b_travel,b_partpreg) ~ dnorm(0,5),
+    c(b_condom,b_mmc,b_mstatus,b_agesexgp,b_fertpref,b_paidsex,b_agepartgp) ~ dnorm(0,5),
+    a ~ dnorm(0,5),
+    a_houseno[houseno] ~ dnorm(0,s_houseno),
+    s_houseno ~ dcauchy(0,1)
   ),
-  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
+  data=as.data.frame(na.omit(male.DSF)),chains=4,iter=4000,warmup=1000,cores=2,rng_seed=8)
 
-m2.pd_sm <-map2stan(
-  alist(
-    sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+a_houseno[houseno]+b_agegp[agegp]+b_resid[resid]+b_educ[educ]+b_employ[employ],
-    b_agegp[agegp] ~ dnorm(0,1),
-    b_resid[resid] ~ dnorm(0,1),
-    b_educ[educ] ~ dnorm(0,1),
-    b_employ[employ] ~ dnorm(0,1),
-    a_houseno[houseno] ~ dnorm(0,sigma_houseno),
-    a ~ dnorm(0,1),
-    sigma_houseno ~ dcauchy(0,1)
-  ),
-  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500,cores=4)
-
-
-#model3: with cluster/community random-effects variable
-m3.pd_sm <-map2stan(
-  alist(
-    sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+a_clustno[clustno]+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ,
-    c(b_agegp,b_resid,b_educ,b_employ) ~ dnorm(0,1),
-    a_clustno[clustno] ~ dnorm(0,sigma_clustno),
-    a ~ dnorm(0,1),
-    sigma_clustno ~ dcauchy(0,1)
-  ),
-  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500)
-
-m3.pd_sm <-map2stan(
-  alist(
-    sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+a_clustno[clustno]+b_agegp[agegp]+b_resid[resid]+b_educ[educ]+b_employ[employ],
-    b_agegp[agegp] ~ dnorm(0,1),
-    b_resid[resid] ~ dnorm(0,1),
-    b_educ[educ] ~ dnorm(0,1),
-    b_employ[employ] ~ dnorm(0,1),
-    a_clustno[clustno] ~ dnorm(0,sigma_clustno),
-    a ~ dnorm(0,1),
-    sigma_clustno ~ dcauchy(0,1)
-  ),
-  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500,cores=4)
-
-#model4: with household and cluster/community random-effects variables
-m4.pd_sm <-map2stan(
-  alist(
-    sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+a_clustno[clustno]+a_houseno[houseno]+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ,
-    c(b_agegp,b_resid,b_educ,b_employ) ~ dnorm(0,1),
-    a_clustno[clustno] ~ dnorm(0,sigma_clustno),
-    a_houseno[houseno] ~ dnorm(0,sigma_houseno),
-    a ~ dnorm(0,1),
-    sigma_clustno ~ dcauchy(0,1),
-    sigma_houseno ~ dcauchy(0,1)
-  ),
-  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500)
-
-m3.pd_sm <-map2stan(
-  alist(
-    sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+a_houseno[houseno]+a_clustno[clustno]+b_agegp[agegp]+b_resid[resid]+b_educ[educ]+b_employ[employ],
-    b_agegp[agegp] ~ dnorm(0,1),
-    b_resid[resid] ~ dnorm(0,1),
-    b_educ[educ] ~ dnorm(0,1),
-    b_employ[employ] ~ dnorm(0,1),
-    a_houseno[houseno] ~ dnorm(0,sigma_houseno),
-    a_clustno[clustno] ~ dnorm(0,sigma_houseno),
-    a ~ dnorm(0,1),
-    sigma_houseno ~ dcauchy(0,1),
-    sigma_clustno ~ dcauchy(0,1)
-    
-  ),
-  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
-
-#compare model predictions through WAIC
-compare(m1.pd_sm,m2.pd_sm,m3.pd_sm,m4.pd_sm)
-
-#trace plot to see if the chains are health
-plot(m1.pd_sm)
+#model2 convergence correlation checks
 plot(m2.pd_sm)
-plot(m3.pd_sm)
-plot(m4.pd_sm)
+pairs(m2.pd_sm, pars=c("b_agegp","b_resid","b_educ","b_employ","b_rel","b_windex","b_travel","b_partpreg","b_condom","b_mmc","b_mstatus","b_agesexgp","b_fertpref","b_paidsex","b_agepartgp"))
+summary(m2.pd_sm)
 
-#investigate correlation between predictors
-pairs(m1.pd_sm)
-pairs(m2.pd_sm)
-pairs(m3.pd_sm)
-pairs(m4.pd_sm)
-
-#estimate posterior mean and 95% credible intervals using maximum a posteriori
-precis(m1.pd_sm, depth=2)
-precis(m2.pd_sm, depth=2)
-precis(m3.pd_sm, depth=2)
-precis(m4.pd_sm, depth=2)
-
-posterior1 <- extract.samples(m1.pd_sm)
-p.age15_19 <- logistic(posterior1$a)
-p.age20_24 <- logistic(posterior1$a+posterior1$b_agegp)
-diff.age <- p.age20_24-p.age15_19
-quantile(diff.age, c(0.025,0.5,0.975))
-
-
-pd_sm <-map2stan(
+#model3: with enumeration area random-effects variable
+set.seed(7)
+m3.pd_sm <- map2stan(
   alist(
     sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ+b_rel*rel+b_windex*windex+b_travel*travel+b_partpreg*partpreg+
-      b_condom*condom+b_mmc*mmc+b_mstatus*mstatus+b_agesexgp*agesexgp+b_fertpref*fertpref+b_paidsex*paidsex+b_agepartgp*agepartgp,
-    c(a,b_agegp,b_resid,b_educ,b_employ,b_rel,b_windex,b_travel,b_partpreg,b_condom,b_mmc,b_mstatus,b_agesexgp,b_fertpref,b_paidsex,b_agepartgp) ~ dnorm(0,10)),
-  data=as.data.frame(na.omit(male.DSF)),chains=2,iter=2500,warmup=500 )
+    logit(sm_p) <- a+a_clustno[clustno]+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ+b_rel*rel+b_windex*windex+b_travel*travel+b_partpreg*partpreg
+    +b_condom*condom+b_mmc*mmc+b_mstatus*mstatus+b_agesexgp*agesexgp+b_fertpref*fertpref+b_paidsex*paidsex+b_agepartgp*agepartgp,
+    c(b_agegp,b_resid,b_educ,b_employ,b_rel,b_windex,b_travel,b_partpreg) ~ dnorm(0,2.5),
+    c(b_condom,b_mmc,b_mstatus,b_agesexgp,b_fertpref,b_paidsex,b_agepartgp) ~ dnorm(0,2.5),
+    a ~ dnorm(170,100),
+    a_clustno[clustno] ~ dnorm(0,s_clustno),
+    s_clustno ~ dcauchy(0,2.5)
+  ),
+  data=as.data.frame(na.omit(male.DSF)),chains=4,iter=4000,warmup=1000,cores=2,rng_seed=7)
+
+m3.pd_sm <- map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+a_clustno[clustno]+b_agegp*agegp+b_resid*resid,
+    c(b_agegp,b_resid) ~ dnorm(0,10),
+    a ~ dgamma(0,100),
+    a_clustno[clustno] ~ dnorm(0,s_clustno),
+    s_clustno ~ dcauchy(0,10)
+  ),
+  data=as.data.frame(na.omit(male.DSF)),chains=4,iter=4000,warmup=1000,cores=2,rng_seed=7)
+
+
+#model3 convergence correlation checks
+plot(m3.pd_sm)
+pairs(m3.pd_sm, pars=c("b_agegp","b_resid","b_educ","b_employ","b_rel","b_windex","b_travel","b_partpreg","b_condom","b_mmc","b_mstatus","b_agesexgp","b_fertpref","b_paidsex","b_agepartgp"))
+summary(m3.pd_sm)
+
+#model4: with household and enumeration area random-effects variables
+set.seed(6)
+m4.pd_sm <- map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+a_houseno[houseno]+a_clustno[clustno]+b_agegp*agegp+b_resid*resid+b_educ*educ+b_employ*employ+b_rel*rel+b_windex*windex+b_travel*travel+b_partpreg*partpreg
+    +b_condom*condom+b_mmc*mmc+b_mstatus*mstatus+b_agesexgp*agesexgp+b_fertpref*fertpref+b_paidsex*paidsex+b_agepartgp*agepartgp,
+    c(b_agegp,b_resid,b_educ,b_employ,b_rel,b_windex,b_travel,b_partpreg) ~ dnorm(0,5),
+    c(b_condom,b_mmc,b_mstatus,b_agesexgp,b_fertpref,b_paidsex,b_agepartgp) ~ dnorm(0,5),
+    a ~ dnorm(0,5),
+    a_houseno[houseno] ~ dnorm(0,s_houseno),
+    a_clustno[clustno] ~ dnorm(0,s_clustno),
+    s_houseno ~ dcauchy(0,1),
+    s_clustno ~ dcauchy(0,1)
+  ),
+  data=as.data.frame(na.omit(male.DSF)),chains=4,iter=4000,warmup=1000,cores=2,rng_seed=6)
+
+#model4 convergence correlation checks
+plot(m4.pd_sm)
+pairs(m4.pd_sm, pars=c("b_agegp","b_resid","b_educ","b_employ","b_rel","b_windex","b_travel","b_partpreg","b_condom","b_mmc","b_mstatus","b_agesexgp","b_fertpref","b_paidsex","b_agepartgp"))
+summary(m4.pd_sm)
+
+#compare model out of sample predictions through WAIC
+compare(m1.pd_sm,m2.pd_sm)
+
+
+
+
+
 
 
 
