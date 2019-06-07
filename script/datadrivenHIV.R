@@ -251,7 +251,7 @@ rm(male.dhs, male.DS)
 male.DSF <-subset(male.DSF, select=c(clustno,houseno,sm,csp,agegp,resid,educ,employ,rel,windex,travel,partpreg,condom,mmc,
                                       mstatus,agesexgp,fertpref,paidsex,agepartgp))
 
-#====================model selection procedure (Table 2.0)====================
+#====================model fitting procedure (Table 2.0)====================
 
 #recode all predictors to represent numeric class for binomial model fitting
 male.DSF$agegp <-as.numeric(recode_factor(male.DSF$agegp,`15-19`=0,`20-24`=1,`25-29`=2,`30-34`=3,`35+`=4))
@@ -270,13 +270,16 @@ male.DSF$fertpref <-as.numeric(recode_factor(male.DSF$fertpref,`doesnt want`=0,`
 male.DSF$paidsex <-as.numeric(recode_factor(male.DSF$paidsex,`no`=0,`yes`=1))
 male.DSF$agepartgp <-as.numeric(recode_factor(male.DSF$agepartgp,`<18y`=0,`18-29y`=1,`30+`=2))
 
-#fit 4 potential binomial models and sample from posterior distribution using Halmitonian Monte Carlo
+#create separate datasets for each outcome and remove NAs
+male.DSF.sm <- subset(male.DSF,!is.na(sm)); male.DSF.sm <- male.DSF.sm[,-4]
+male.DSF.csp <- subset(male.DSF,!is.na(csp)); male.DSF.csp <- male.DSF.csp[-3]
 
+#fit 4  binomial models for "sm" outcome and sample from posterior distribution using HMC
 #integerize the cluster and household ids so they are contiguous.
-male.DSF$clustno <- as.integer(as.factor(male.DSF$clustno))
-male.DSF$houseno <- as.integer(as.factor(male.DSF$houseno))
-sort(unique(male.DSF$clustno))
-sort(unique(male.DSF$houseno))
+male.DSF.sm$clustno <- as.integer(as.factor(male.DSF.sm$clustno))
+male.DSF.sm$houseno <- as.integer(as.factor(male.DSF.sm$houseno))
+sort(unique(male.DSF.sm$clustno))
+sort(unique(male.DSF.sm$houseno))
 
 #model1: without random-effects
 set.seed(9)
@@ -289,7 +292,7 @@ m1.pd_sm <- map2stan(
     c(b_condom,b_mmc,b_mstatus,b_agesexgp,b_fertpref,b_paidsex,b_agepartgp) ~ dnorm(0,5),
     a ~ dnorm(0,5)
   ),
-  data=as.data.frame(na.omit(male.DSF)),chains=4,iter=4000,warmup=1000,cores=2,rng_seed=9)
+  data=as.data.frame(na.omit(male.DSF.sm)),chains=4,iter=4000,warmup=1000,cores=2,rng_seed=9)
 
 #model1 convergence correlation checks
 plot(m1.pd_sm)
@@ -335,12 +338,12 @@ m3.pd_sm <- map2stan(
   alist(
     sm ~ dbinom(1,sm_p),
     logit(sm_p) <- a+a_clustno[clustno]+b_agegp*agegp+b_resid*resid,
-    c(b_agegp,b_resid) ~ dnorm(0,10),
+    c(b_agegp,b_resid) ~ dnorm(20,100),
     a ~ dgamma(0,100),
     a_clustno[clustno] ~ dnorm(0,s_clustno),
     s_clustno ~ dcauchy(0,10)
   ),
-  data=as.data.frame(na.omit(male.DSF)),chains=4,iter=4000,warmup=1000,cores=2,rng_seed=7)
+  data=as.data.frame(na.omit(male.DSF.sm)),chains=4,iter=4000,warmup=1000,cores=2,rng_seed=7)
 
 
 #model3 convergence correlation checks
