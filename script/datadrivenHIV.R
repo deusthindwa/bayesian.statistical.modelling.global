@@ -7,7 +7,7 @@ DDHP.packages <-c("foreign","tidyverse","janitor","readstata13","rethinking","rs
 lapply(DDHP.packages, library, character.only=TRUE)
 
 #load male questionnaire csv
-male.dhs <-as_tibble(read.dta13("/Users/dthindwa/Rproject/drivenHIV/data/male.dta"))
+male.dhs <-as_tibble(read.dta13("/Users/lsh1703394/Rproject/drivenHIV/data/male.dta"))
 
 #subset the dataset to get appropriate variables
 male.DS <-select(male.dhs,mv766b,mv854a,mv001,mv002,mv012,mv025,mv106,mv731,mv130,mv190,mv167,mv213,mv761,mv483,
@@ -145,7 +145,7 @@ male.DSF$educ <-as.numeric(recode_factor(male.DSF$educ,`no education`=0,`primary
 male.DSF$employ <-as.numeric(recode_factor(male.DSF$employ,`none`=0,`working`=1))
 male.DSF$travel <-as.numeric(recode_factor(male.DSF$travel,`none`=0,`less times`=1,`more times`=2))
 male.DSF$mmc <-as.numeric(recode_factor(male.DSF$mmc,`no`=0,`yes`=1))
-male.DSF$mstatus <-as.numeric(recode_factor(male.DSF$mstatus,`never married`=0,`married`=1,`seperated`=NULL))
+male.DSF$mstatus <-as.numeric(recode_factor(male.DSF$mstatus,`never married`=0,`married`=1,`seperated`=2))
 male.DSF$agesexgp <-as.numeric(recode_factor(male.DSF$agesexgp,`<16`=0,`16-19`=1,`20+`=2))
 male.DSF$fertpref <-as.numeric(recode_factor(male.DSF$fertpref,`doesnt want`=0,`wants`=1))
 male.DSF$paidsex <-as.numeric(recode_factor(male.DSF$paidsex,`no`=0,`yes`=1))
