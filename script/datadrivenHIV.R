@@ -3,7 +3,7 @@
 
 #====================LOAD REQUIRED PACKAGES AND DATASET====================
 
-DDHP.packages <-c("foreign","tidyverse","janitor","readstata13","rethinking","rstan","coda","plyr")
+DDHP.packages <-c("foreign","tidyverse","janitor","readstata13","rethinking","rstan","coda","plyr","brms","GGally")
 lapply(DDHP.packages, library, character.only=TRUE)
 
 #load male questionnaire csv
@@ -329,21 +329,134 @@ dashboard(m4.pd_csp)
 
 #==============POSTERIOR ANALYSIS==================
 
-#plot model comparisons for each outcome (S1 Figure)
+#model comparison plots for each outcome (S1 Figure)
 dev.off()
-par(mfrow=c(1,2))
+par(mfrow=c(1,4),mai = c(0.6, 0, 0.5, 0.1))
 plot(compare(m1.pd_sm,m2.pd_sm,m3.pd_sm,m4.pd_sm),main="A")
-plot(compare(m1.pd_csp,m2.pd_csp,m3.pd_csp,m4.pd_csp),main="B")
+plot(coeftab(m1.pd_sm,m2.pd_sm,m3.pd_sm,m4.pd_sm),pars=cov.par,main="B")
+plot(compare(m1.pd_csp,m2.pd_csp,m3.pd_csp,m4.pd_csp),main="C")
+plot(coeftab(m1.pd_csp,m2.pd_csp,m3.pd_csp,m4.pd_csp),pars=cov.par,main="D")
 
 #posterior density and traceplots of parameters (S2 Figure)
+m3.pd_smX <- data.frame(p=extract.samples(m3.pd_sm))
+m3.pd_smX <- m3.pd_smX[,1:9]
+m4.pd_cspX <- data.frame(p=extract.samples(m3.pd_csp))
+m4.pd_cspX <- m4.pd_cspX[,1:9]
 
+dev.off()
+par(mfrow=c(5,8),mai = c(0.6, 0.4, 0.2, 0.1))
+plot(logistic(m3.pd_smX$p.b_agegp), col="lightblue", xlab="",ylab="",main="A",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m3.pd_smX$p.b_agegp),xlab="",ylab="",main="A",col="darkblue",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m4.pd_cspX$p.b_agegp), col="red1", xlab="",ylab="",main="A",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m4.pd_cspX$p.b_agegp),xlab="",ylab="",main="A",col="red3",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m3.pd_smX$p.b_educ), col="lightblue", xlab="",ylab="",main="B",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m3.pd_smX$p.b_educ),xlab="",ylab="",main="B",col="darkblue",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m4.pd_cspX$p.b_educ), col="red1", xlab="",ylab="",main="B",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m4.pd_cspX$p.b_educ),xlab="",ylab="",main="B",col="red3",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m3.pd_smX$p.b_employ), col="lightblue", xlab="",ylab="",main="C",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m3.pd_smX$p.b_employ),xlab="",ylab="",main="C",col="darkblue",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m4.pd_cspX$p.b_employ), col="red1", xlab="",ylab="",main="C",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m4.pd_cspX$p.b_employ),xlab="",ylab="",main="C",col="red3",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m3.pd_smX$p.b_travel), col="lightblue", xlab="",ylab="",main="D",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m3.pd_smX$p.b_travel),xlab="",ylab="",main="D",col="darkblue",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m4.pd_cspX$p.b_travel), col="red1", xlab="",ylab="",main="D",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m4.pd_cspX$p.b_travel),xlab="",ylab="",main="D",col="red3",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m3.pd_smX$p.b_mmc), col="lightblue", xlab="",ylab="",main="E",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m3.pd_smX$p.b_mmc),xlab="",ylab="",main="E",col="darkblue",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m4.pd_cspX$p.b_mmc), col="red1", xlab="",ylab="",main="E",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m4.pd_cspX$p.b_mmc),xlab="",ylab="",main="E",col="red3",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m3.pd_smX$p.b_mstatus), col="lightblue", xlab="",ylab="",main="F",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m3.pd_smX$p.b_mstatus),xlab="",ylab="",main="F",col="darkblue",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m4.pd_cspX$p.b_mstatus), col="red1", xlab="",ylab="",main="F",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m4.pd_cspX$p.b_mstatus),xlab="",ylab="",main="F",col="red3",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m3.pd_smX$p.b_agesexgp), col="lightblue", xlab="",ylab="",main="G",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m3.pd_smX$p.b_agesexgp),xlab="",ylab="",main="G",col="darkblue",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m4.pd_cspX$p.b_agesexgp), col="red1", xlab="",ylab="",main="G",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m4.pd_cspX$p.b_agesexgp),xlab="",ylab="",main="G",col="red3",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m3.pd_smX$p.b_fertpref), col="lightblue", xlab="",ylab="",main="H",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m3.pd_smX$p.b_fertpref),xlab="",ylab="",main="H",col="darkblue",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m4.pd_cspX$p.b_fertpref), col="red1", xlab="",ylab="",main="H",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m4.pd_cspX$p.b_fertpref),xlab="",ylab="",main="H",col="red3",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m3.pd_smX$p.b_paidsex), col="lightblue", xlab="",ylab="",main="I",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m3.pd_smX$p.b_paidsex),xlab="",ylab="",main="I",col="darkblue",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+
+plot(logistic(m4.pd_cspX$p.b_paidsex), col="red1", xlab="",ylab="",main="I",type="l")
+abline(v=1000,col="black",lty="dotted",lwd="2")
+mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
+dens(logistic(m4.pd_cspX$p.b_paidsex),xlab="",ylab="",main="I",col="red3",lwd=3)
+mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
 
 #posterior predictive plots of outcomes (S3 Figure)
 
 
 #posterior distribution estimates for sm and csp from final models
-
-
 set.seed(6)
 m4.pd_cspF <- map2stan(
   alist(
