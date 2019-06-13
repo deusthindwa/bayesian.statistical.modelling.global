@@ -33,46 +33,42 @@ male.DSF$csp <-if_else(is.na(male.DSF$csp),0,if_else(male.DSF$csp=="yes",1,NULL)
 male.DSF %>% tabyl(csp, show_na=FALSE) %>% adorn_pct_formatting(digits=1)
 
 #Respondent male age
-male.DSF$agegp <-if_else(male.DSF$age>=15 & male.DSF$age<20,0,if_else(male.DSF$age>=20 & male.DSF$age<30,1,2))
-male.DSF$agegp <-recode_factor(male.DSF$agegp,`0`="15-19",`1`="20-29",`2`="30+")
+male.DSF$agegp <-if_else(male.DSF$age>=15 & male.DSF$age<20,1,if_else(male.DSF$age>=20 & male.DSF$age<30,2,3))
+male.DSF$agegp <-recode_factor(male.DSF$agegp,`1`="15-19",`2`="20-29",`3`="30+")
 
 #Education
-male.DSF$educ <-recode_factor(male.DSF$educ,`no education`="0",`primary`="1",`secondary`="2",`higher`="2")
-male.DSF$educ <-recode_factor(male.DSF$educ,`0`="no education",`1`="primary",`2`="secondary")
+male.DSF$educ <-recode_factor(male.DSF$educ,`no education`="1",`primary`="2",`secondary`="3",`higher`="3")
+male.DSF$educ <-recode_factor(male.DSF$educ,`1`="no education",`2`="primary",`3`="secondary")
 
 #Employment
-male.DSF$employ <-recode_factor(male.DSF$employ,`no`="0",`in the past year`="0",`currently working`="1")
-male.DSF$employ <-recode_factor(male.DSF$employ,`0`="none",`1`="working")
-
-#Religion
-male.DSF$rel <-recode_factor(male.DSF$rel,`no religion`="0",`other`="0",`anglican`="1",`catholic`="1",`ccap`="1",`other christian`="1",`seventh day adventist / baptist`="1",`muslim`="2")
-male.DSF$rel <-recode_factor(male.DSF$rel,`0`="none",`1`="christianity",`2`="islam")
+male.DSF$employ <-recode_factor(male.DSF$employ,`no`="1",`in the past year`="1",`currently working`="2")
+male.DSF$employ <-recode_factor(male.DSF$employ,`1`="none",`2`="working")
 
 #Travel away from home
-male.DSF$travel <-if_else(male.DSF$travel==0,0,if_else(male.DSF$travel>0 & male.DSF$travel<=6,1,2))
-male.DSF$travel <-recode_factor(male.DSF$travel,`0`="none",`1`="less times",`2`="more times")
+male.DSF$travel <-if_else(male.DSF$travel==0,1,if_else(male.DSF$travel>0 & male.DSF$travel<=6,2,3))
+male.DSF$travel <-recode_factor(male.DSF$travel,`1`="none",`2`="less times",`3`="more times")
 
 #Male circumcision
-male.DSF$mmc <-recode_factor(male.DSF$mmc,`no`="0",`don't know`="0",`yes`="1")
-male.DSF$mmc <-recode_factor(male.DSF$mmc,`0`="no",`1`="yes")
+male.DSF$mmc <-recode_factor(male.DSF$mmc,`no`="1",`don't know`="1",`yes`="2")
+male.DSF$mmc <-recode_factor(male.DSF$mmc,`1`="no",`2`="yes")
 
 #Marital status
-male.DSF$mstatus <-recode_factor(male.DSF$mstatus,`never in union`="0",`living with partner`="1",`married`="1",`divorced`="2",`no longer living together/separated`="2",`widowed`="2")
-male.DSF$mstatus <-recode_factor(male.DSF$mstatus,`0`="never married",`1`="married",`2`="seperated")
+male.DSF$mstatus <-recode_factor(male.DSF$mstatus,`never in union`="1",`living with partner`="2",`married`="2",`divorced`="1",`no longer living together/separated`="1",`widowed`="1")
+male.DSF$mstatus <-recode_factor(male.DSF$mstatus,`1`="single",`2`="married")
 
-#Age at first sex (marriage age in Malawi used to be 16+ at time of MDHS but now 18+)
-male.DSF$agesexgp <-if_else(male.DSF$agesex<16,0,if_else(male.DSF$agesex>=16 & male.DSF$agesex<20,1,2))
-male.DSF$agesexgp <-recode_factor(male.DSF$agesexgp,`0`="<16",`1`="16-19",`2`="20+")
+#Age at first sex (marriage age in Malawi used to be 16+ at the time of MDHS but now 18+)
+male.DSF$agesexgp <-if_else(male.DSF$agesex<16,1,if_else(male.DSF$agesex>=16 & male.DSF$agesex<20,2,3))
+male.DSF$agesexgp <-recode_factor(male.DSF$agesexgp,`1`="<16",`2`="16-19",`3`="20+")
 
 #Fertility preference
-male.DSF$fertpref <-recode_factor(male.DSF$fertpref,`wants no more`="0",`wants within 2 years`="1",`wants, unsure timing`="1",`wants after 2+ years`="1",`undecided`="2",
-                                  `declared infecund (respondent or partner(s))`="2",`sterilized (respondent or partner(s))`="2",
-                                  `never had sex`="2")
-male.DSF$fertpref <-recode_factor(male.DSF$fertpref,`0`="doesnt want",`1`="wants",`2`= NULL)
+male.DSF$fertpref <-recode_factor(male.DSF$fertpref,`wants no more`="1",`wants within 2 years`="2",`wants, unsure timing`="2",`wants after 2+ years`="2",`undecided`="3",
+                                  `declared infecund (respondent or partner(s))`="3",`sterilized (respondent or partner(s))`="3",
+                                  `never had sex`="3")
+male.DSF$fertpref <-recode_factor(male.DSF$fertpref,`1`="no",`2`="yes",`3`= NULL)
 
 #Paid sex
-male.DSF$paidsex <-recode_factor(male.DSF$paidsex,`no`="0",`yes`="1")
-male.DSF$paidsex <-recode_factor(male.DSF$paidsex,`0`="no",`1`="yes")
+male.DSF$paidsex <-recode_factor(male.DSF$paidsex,`no`="1",`yes`="2")
+male.DSF$paidsex <-recode_factor(male.DSF$paidsex,`1`="no",`2`="yes")
 
 #====================TABULATE COVARIATES BY OUTCOME VARIABLE (TABLE 1.0)====================
 
@@ -89,11 +85,6 @@ male.DSF %>% tabyl(educ,show_na=FALSE) %>% adorn_pct_formatting(digits=1)
 male.DSF %>% tabyl(educ,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
 male.DSF %>% tabyl(educ,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
 chisq.test(male.DSF$educ,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$educ,male.DSF$csp, correct=TRUE)
-
-male.DSF %>% tabyl(rel,show_na=FALSE) %>% adorn_pct_formatting(digits=1) 
-male.DSF %>% tabyl(rel,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-male.DSF %>% tabyl(rel,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-chisq.test(male.DSF$rel,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$rel,male.DSF$csp, correct=TRUE)
 
 male.DSF %>% tabyl(employ,show_na=FALSE) %>% adorn_pct_formatting(digits=1) 
 male.DSF %>% tabyl(employ,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
@@ -124,7 +115,7 @@ male.DSF %>% tabyl(agesexgp,sm,show_na=FALSE) %>% adorn_percentages("col") %>% a
 male.DSF %>% tabyl(agesexgp,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
 chisq.test(male.DSF$agesexgp,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$agesexgp,male.DSF$csp, correct=TRUE)
 
-male.DSF %>% tabyl(fertpref,show_na=FALSE) %>% adorn_pct_formatting(digits=1) 
+male.DSF %>% tabyl(fertpref) %>% adorn_pct_formatting(digits=1) 
 male.DSF %>% tabyl(fertpref,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
 male.DSF %>% tabyl(fertpref,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
 chisq.test(male.DSF$fertpref,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$fertpref,male.DSF$csp, correct=TRUE)
@@ -137,18 +128,18 @@ chisq.test(male.DSF$paidsex,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$paid
 rm(male.dhs, male.DS)
 male.DSF <-subset(male.DSF, select=c(clustno,houseno,sm,csp,agegp,educ,employ,travel,mmc, mstatus,agesexgp,fertpref,paidsex))
 
-#====================PREPARE DATASETS FOR MODEL FIITING====================
+#====================PREPARE DATASETS FOR MODEL FITTING====================
 
 #recode all predictors to represent numeric class for binomial model fitting
-male.DSF$agegp <-as.numeric(recode_factor(male.DSF$agegp,`15-19`=0,`20-29`=1,`30+`=2))
-male.DSF$educ <-as.numeric(recode_factor(male.DSF$educ,`no education`=0,`primary`=1,`secondary`=2))
-male.DSF$employ <-as.numeric(recode_factor(male.DSF$employ,`none`=0,`working`=1))
-male.DSF$travel <-as.numeric(recode_factor(male.DSF$travel,`none`=0,`less times`=1,`more times`=2))
-male.DSF$mmc <-as.numeric(recode_factor(male.DSF$mmc,`no`=0,`yes`=1))
-male.DSF$mstatus <-as.numeric(recode_factor(male.DSF$mstatus,`never married`=0,`married`=1,`seperated`=2))
-male.DSF$agesexgp <-as.numeric(recode_factor(male.DSF$agesexgp,`<16`=0,`16-19`=1,`20+`=2))
-male.DSF$fertpref <-as.numeric(recode_factor(male.DSF$fertpref,`doesnt want`=0,`wants`=1))
-male.DSF$paidsex <-as.numeric(recode_factor(male.DSF$paidsex,`no`=0,`yes`=1))
+male.DSF$agegp <-as.numeric(recode_factor(male.DSF$agegp,`15-19`=1,`20-29`=2,`30+`=3))
+male.DSF$educ <-as.numeric(recode_factor(male.DSF$educ,`no education`=1,`primary`=2,`secondary`=3))
+male.DSF$employ <-as.numeric(recode_factor(male.DSF$employ,`none`=1,`working`=2))
+male.DSF$travel <-as.numeric(recode_factor(male.DSF$travel,`none`=1,`less times`=2,`more times`=3))
+male.DSF$mmc <-as.numeric(recode_factor(male.DSF$mmc,`no`=1,`yes`=2))
+male.DSF$mstatus <-as.numeric(recode_factor(male.DSF$mstatus,`single`=1,`married`=2))
+male.DSF$agesexgp <-as.numeric(recode_factor(male.DSF$agesexgp,`<16`=1,`16-19`=2,`20+`=3))
+male.DSF$fertpref <-as.numeric(recode_factor(male.DSF$fertpref,`no`=1,`yes`=2))
+male.DSF$paidsex <-as.numeric(recode_factor(male.DSF$paidsex,`no`=1,`yes`=2))
 
 #integerize the enumeration area and household ids so they are contiguous.
 male.DSF$clustno <- as.integer(as.factor(male.DSF$clustno))
@@ -330,6 +321,45 @@ dashboard(m4.pd_csp)
 #==============POSTERIOR ANALYSIS==================
 
 #stratum-specific posterior distribution estimates for sm and csp from final models (Table 2)
+set.seed(7)
+m3.pd_sm.J <- map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+a_clustno[clustno]+b_agegp[agegp]+b_educ[educ]+b_employ[employ]+b_travel[travel]+b_mmc[mmc]+b_mstatus*mstatus+b_agesexgp[agesexgp]+b_fertpref[fertpref]+b_paidsex[paidsex],
+    b_agegp[agegp] ~ dnorm(0,1),
+    b_educ[educ] ~ dnorm(0,1),
+    b_employ[employ] ~ dnorm(0,1),
+    b_travel[travel] ~ dnorm(0,1),
+    b_mmc[mmc] ~ dnorm(0,1),
+    b_mstatus ~ dnorm(0,1),
+    b_agesexgp[agesexgp] ~ dnorm(0,1),
+    b_fertpref[fertpref] ~ dnorm(0,1),
+    b_paidsex[paidsex] ~ dnorm(0,1),
+    a ~ dnorm(0,1), 
+    a_clustno[clustno] ~ dnorm(0,s_clustno),
+    s_clustno ~ dcauchy(0,1)), 
+  data=as.data.frame(na.omit(male.DSF.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=7)
+
+set.seed(7)
+m4.pd_csp.J <- map2stan(
+  alist(
+    csp ~ dbinom(1,csp_p),
+    logit(csp_p) <- a+a_clustno[clustno]+a_houseno[houseno]+b_agegp[agegp]+b_educ[educ]+b_employ[employ]+b_travel[travel]+b_mmc[mmc]+b_mstatus*mstatus+b_agesexgp[agesexgp]+b_fertpref[fertpref]+b_paidsex[paidsex],
+    b_agegp[agegp] ~ dnorm(0,1),
+    b_educ[educ] ~ dnorm(0,1),
+    b_employ[employ] ~ dnorm(0,1),
+    b_travel[travel] ~ dnorm(0,1),
+    b_mmc[mmc] ~ dnorm(0,1),
+    b_mstatus ~ dnorm(0,1),
+    b_agesexgp[agesexgp] ~ dnorm(0,1),
+    b_fertpref[fertpref] ~ dnorm(0,1),
+    b_paidsex[paidsex] ~ dnorm(0,1),
+    a ~ dnorm(0,1), 
+    a_houseno[houseno] ~ dnorm(0,s_houseno),
+    a_clustno[clustno] ~ dnorm(0,s_clustno),
+    s_houseno ~ dcauchy(0,1)
+    s_clustno ~ dcauchy(0,1)), 
+  data=as.data.frame(na.omit(male.DSF.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=7)
 
 #posterior density and traceplots of parameters (S1 Figure)
 m3.pd_smX <- data.frame(p=extract.samples(m3.pd_sm))
