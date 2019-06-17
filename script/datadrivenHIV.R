@@ -340,7 +340,7 @@ m3.pd_sm.J <- map2stan(
     s_clustno ~ dcauchy(0,1)), 
   data=as.data.frame(na.omit(male.DSF.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=7)
 
-set.seed(7)
+set.seed(6)
 m4.pd_csp.J <- map2stan(
   alist(
     csp ~ dbinom(1,csp_p),
@@ -357,7 +357,7 @@ m4.pd_csp.J <- map2stan(
     a ~ dnorm(0,1), 
     a_houseno[houseno] ~ dnorm(0,s_houseno),
     a_clustno[clustno] ~ dnorm(0,s_clustno),
-    s_houseno ~ dcauchy(0,1)
+    s_houseno ~ dcauchy(0,1),
     s_clustno ~ dcauchy(0,1)), 
   data=as.data.frame(na.omit(male.DSF.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=7)
 
