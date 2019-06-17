@@ -7,7 +7,7 @@ DDHP.packages <-c("foreign","tidyverse","janitor","readstata13","rethinking","rs
 lapply(DDHP.packages, library, character.only=TRUE)
 
 #load male questionnaire csv
-male.dhs <-as_tibble(read.dta13("/Users/dthindwa/Rproject/drivenHIV/data/male.dta"))
+male.dhs <-as_tibble(read.dta13("/Users/lsh1703394/Rproject/drivenHIV/data/male.dta"))
 
 #subset the dataset to get appropriate variables
 male.DS <-select(male.dhs,mv766b,mv854a,mv001,mv002,mv012,mv025,mv106,mv731,mv130,mv190,mv167,mv213,mv761,mv483,
@@ -61,11 +61,10 @@ male.DSF$agesexgp <-if_else(male.DSF$agesex<16,1,if_else(male.DSF$agesex>=16 & m
 male.DSF$agesexgp <-recode_factor(male.DSF$agesexgp,`1`="<16",`2`="16-19",`3`="20+")
 
 #Condom use
-
-male.DSF$condom <-recode_factor(male.DSF$fertpref,`wants no more`="1",`wants within 2 years`="2",`wants, unsure timing`="2",`wants after 2+ years`="2",`undecided`="3",
+male.DSF$condom <-recode_factor(male.DSF$condom,`wants no more`="1",`wants within 2 years`="2",`wants, unsure timing`="2",`wants after 2+ years`="2",`undecided`="3",
                                   `declared infecund (respondent or partner(s))`="3",`sterilized (respondent or partner(s))`="3",
                                   `never had sex`="3")
-male.DSF$fertpref <-recode_factor(male.DSF$fertpref,`1`="no",`2`="yes",`3`= NULL)
+male.DSF$condom <-recode_factor(male.DSF$condom,`1`="no",`2`="yes",`3`= NULL)
 
 #Paid sex
 male.DSF$paidsex <-recode_factor(male.DSF$paidsex,`no`="1",`yes`="2")
