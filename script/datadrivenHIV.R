@@ -497,18 +497,18 @@ dev.off()
 cov.par=c("Age","Education","Employment","Travel","Circumcision","Marriage","Sexual_debut","Child_desire","Paid_sex")
 par(mfrow=c(1,2),mai=c(0.9,0,0.5,0.1))
 plot(compare(sm.model1,sm.model2,sm.model3,sm.model4))
-title(main="A",adj=0.3)
+title(main="A",line=-1,adj=0.3)
 plot(coeftab(sm.model2,sm.model1,sm.model3,sm.model4),pars=cov.par)
-title(main="B",adj=0.3)
+title(main="B",line=-1,adj=0.3)
 
 dev.off()
 par(mfrow=c(1,2),mai=c(0.9,0,0.5,0.1))
 plot(compare(csp.model2,csp.model1,csp.model3,csp.model4))
-title(main="A",adj=0.3)
+title(main="A",line=-1,adj=0.3)
 plot(coeftab(csp.model2,csp.model1,csp.model3,csp.model4),pars=cov.par)
-title(main="B",adj=0.3)
+title(main="B",line=-1,adj=0.3)
 
-#counterfactual plot (marginal posterior density) of each predictor of sm (Figure 1)
+#counterfactual plot (marginal posterior predictions) of each predictor of sm (Figure 1)
 #-------------------------------------------------------------------------------------
 cov.par=c("Age","Education","Employment","Travel","Circumcision","Marriage","Sexual_debut","Child_desire","Paid_sex")
 cov.seq3=seq.int(from=1, to=3, length.out=30)
@@ -715,7 +715,7 @@ csp_paidsex.CI <- apply(csp_paidsex.sim,2,PI,prob=0.95)
 
 dev.off()
 par(mfrow=c(3,3),mai = c(0.5, 0.5, 0.2, 0.1))
-plot(sm ~ agegp, data=male.label, type="n",xlab="",ylab="")
+plot(sm ~ agegp, data=male.label,pch=16,col=rangi2, type="n",xlab="",ylab="")
 mtext("Age",side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7); mtext("A",side=3,line=0); 
 shade(sm.agegp.PI,cov.seq3,col="lightblue")
 lines(cov.seq3,sm.agegp.mean, col="darkblue",lwd=3)
@@ -788,4 +788,24 @@ shade(csp_paidsex.PI,cov.seq2,col=rainbow(70, alpha = 0.4))
 legend("topleft", legend=c("SM", "CSP"), col=c("darkblue", "red3"), lty=1:1, cex=0.7, lwd=2)
 
 #-------------------------------------------------------------------------------------
+#posterior predictive plot
+sm.ppp.mu <- link(sm.model4)
+sm.ppp.mu.mean <- apply(sm.ppp.mu,2,mean)
+sm.ppp.mu.PI <- apply(sm.ppp.mu,2,PI)
+sm.ppp.sim <- sim(sm.model4, n=10)
+sm.ppp.CI <- apply(sm.ppp.sim,2,PI)
+
+dev.off()
+plot(sm.ppp.mu.mean ~ sm , col=rangi2, ylim=range(sm.ppp.mu.PI),xlab="observed SM",ylab="predicted SM", data=na.omit(male.sm))
+abline(a=0,b=1,lty=2)
+for(i in 1:nrow(na.omit(male.sm)))
+    lines(rep(na.omit(male.sm$sm[i]),2), c(sm.ppp.mu.PI[1,i],sm.ppp.mu.PI[2,i]), col=rangi2)
+
+
+
+
+
+
+
+
     
