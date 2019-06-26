@@ -131,6 +131,8 @@ rm(male.dhs, male.DS,male.DSF)
 #====================PREPARE DATASETS FOR MODEL FITTING====================
 
 #recode all predictors to represent integer class for binomial model fitting
+male$sm <- as.integer(male$sm)
+male$csp <- as.integer(male$csp)
 male$agegp <-as.integer(recode_factor(male$agegp,`15-19`=1,`20-29`=2,`30+`=3))
 male$educ <-as.integer(recode_factor(male$educ,`no education`=1,`primary`=2,`secondary`=3))
 male$employ <-as.integer(recode_factor(male$employ,`none`=1,`working`=2))
@@ -321,11 +323,11 @@ dashboard(csp.model4)
 #==============POSTERIOR ANALYSIS==================
 
 #stratum-specific posterior distribution estimates for sm and csp from final models (Table 2)
-set.seed(7)
-sm.model3.J <- map2stan(
+set.seed(1988)
+sm.model4.final <- map2stan(
   alist(
     sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+a_clustno[clustno]+Age[agegp]+Education[educ]+Employment[employ]+Travel[travel]+Circumcision[mmc]+Marriage*mstatus+Sexual_debut[agesexgp]+Child_desire[fertpref]+Paid_sex[paidsex],
+    logit(sm_p) <- a+a_clustno[clustno]+a_houseno[houseno]+Age[agegp]+Education[educ]+Employment[employ]+Travel[travel]+Circumcision[mmc]+Marriage*mstatus+Sexual_debut[agesexgp]+Child_desire[fertpref]+Paid_sex[paidsex],
     Age[agegp] ~ dnorm(0,1),
     Education[educ] ~ dnorm(0,1),
     Employment[employ] ~ dnorm(0,1),
@@ -336,12 +338,14 @@ sm.model3.J <- map2stan(
     Child_desire[fertpref] ~ dnorm(0,1),
     Paid_sex[paidsex] ~ dnorm(0,1),
     a ~ dnorm(0,1), 
+    a_houseno[houseno] ~ dnorm(0,s_houseno),
     a_clustno[clustno] ~ dnorm(0,s_clustno),
+    s_houseno ~ dcauchy(0,1),
     s_clustno ~ dcauchy(0,1)), 
   data=as.data.frame(na.omit(male.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=7)
 
-set.seed(6)
-csp.model4.J <- map2stan(
+set.seed(1988)
+csp.model4.final <- map2stan(
   alist(
     csp ~ dbinom(1,csp_p),
     logit(csp_p) <- a+a_clustno[clustno]+a_houseno[houseno]+Age[agegp]+Education[educ]+Employment[employ]+Travel[travel]+Circumcision[mmc]+Marriage*mstatus+Sexual_debut[agesexgp]+Child_desire[fertpref]+Paid_sex[paidsex],
