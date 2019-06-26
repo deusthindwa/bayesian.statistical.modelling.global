@@ -323,6 +323,8 @@ dashboard(csp.model4)
 #==============POSTERIOR ANALYSIS==================
 
 #stratum-specific posterior distribution estimates for sm and csp from final models (Table 2)
+male.sm$mstatus <- coerce_index(male.sm$mstatus)
+  
 set.seed(1988)
 sm.model4.final <- map2stan(
   alist(
