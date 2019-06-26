@@ -114,7 +114,7 @@ male.DSF %>% tabyl(agesexgp,sm,show_na=FALSE) %>% adorn_percentages("col") %>% a
 male.DSF %>% tabyl(agesexgp,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
 chisq.test(male.DSF$agesexgp,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$agesexgp,male.DSF$csp, correct=TRUE)
 
-male.DSF %>% tabyl(fertpref) %>% adorn_pct_formatting(digits=1) 
+male.DSF %>% tabyl(fertpref,show_na=FALSE) %>% adorn_pct_formatting(digits=1) 
 male.DSF %>% tabyl(fertpref,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
 male.DSF %>% tabyl(fertpref,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
 chisq.test(male.DSF$fertpref,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$fertpref,male.DSF$csp, correct=TRUE)
@@ -322,11 +322,11 @@ dashboard(csp.model4)
 
 #==============POSTERIOR ANALYSIS==================
 
-#stratum-specific posterior distribution estimates for sm and csp from final models (Table 2)
-male.sm$mstatus <- coerce_index(male.sm$mstatus)
-  
+male.sm$mstatus <- if_else(male.sm$mstatus==1,0,1) #so can extract single(0) and married(1) since marriage not entering models as index variable
+
+#refit the final selected model for SM but with strata
 set.seed(1988)
-sm.model4.final <- map2stan(
+sm.model4.f <- map2stan(
   alist(
     sm ~ dbinom(1,sm_p),
     logit(sm_p) <- a+a_clustno[clustno]+a_houseno[houseno]+Age[agegp]+Education[educ]+Employment[employ]+Travel[travel]+Circumcision[mmc]+Marriage*mstatus+Sexual_debut[agesexgp]+Child_desire[fertpref]+Paid_sex[paidsex],
@@ -346,8 +346,49 @@ sm.model4.final <- map2stan(
     s_clustno ~ dcauchy(0,1)), 
   data=as.data.frame(na.omit(male.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=7)
 
+#Relative and absolute differences between covariate categories in predicting serial monogamy (Table 2)
+sm.x<-data.frame(extract.samples(sm.model4.f))
+mean(exp(sm.x$Age.2-sm.x$Age.1)); quantile(exp(sm.x$Age.2-sm.x$Age.1),prob=c(0.025,0.975))
+mean(exp(sm.x$Age.3-sm.x$Age.1)); quantile(exp(sm.x$Age.3-sm.x$Age.1),prob=c(0.025,0.975))
+mean(logistic(sm.x$Age.2-sm.x$Age.1)); quantile(logistic(sm.x$Age.2-sm.x$Age.1),prob=c(0.025,0.975))
+mean(logistic(sm.x$Age.3-sm.x$Age.1)); quantile(logistic(sm.x$Age.3-sm.x$Age.1),prob=c(0.025,0.975))
+
+mean(exp(sm.x$Education.2-sm.x$Education.1)); quantile(exp(sm.x$Education.2-sm.x$Education.1),prob=c(0.025,0.975))
+mean(exp(sm.x$Education.3-sm.x$Education.1)); quantile(exp(sm.x$Education.3-sm.x$Education.1),prob=c(0.025,0.975))
+mean(logistic(sm.x$Education.2-sm.x$Education.1)); quantile(logistic(sm.x$Education.2-sm.x$Education.1),prob=c(0.025,0.975))
+mean(logistic(sm.x$Education.3-sm.x$Education.1)); quantile(logistic(sm.x$Education.3-sm.x$Education.1),prob=c(0.025,0.975))
+
+mean(exp(sm.x$Employment.2-sm.x$Employment.1)); quantile(exp(sm.x$Employment.2-sm.x$Employment.1),prob=c(0.025,0.975))
+mean(logistic(sm.x$Employment.2-sm.x$Employment.1)); quantile(logistic(sm.x$Employment.2-sm.x$Employment.1),prob=c(0.025,0.975))
+
+mean(exp(sm.x$Travel.2-sm.x$Travel.1)); quantile(exp(sm.x$Travel.2-sm.x$Travel.1),prob=c(0.025,0.975))
+mean(exp(sm.x$Travel.3-sm.x$Travel.1)); quantile(exp(sm.x$Travel.3-sm.x$Travel.1),prob=c(0.025,0.975))
+mean(logistic(sm.x$Travel.2-sm.x$Travel.1)); quantile(logistic(sm.x$Travel.2-sm.x$Travel.1),prob=c(0.025,0.975))
+mean(logistic(sm.x$Travel.3-sm.x$Travel.1)); quantile(logistic(sm.x$Travel.3-sm.x$Travel.1),prob=c(0.025,0.975))
+
+mean(exp(sm.x$Circumcision.2-sm.x$Circumcision.1)); quantile(exp(sm.x$Circumcision.2-sm.x$Circumcision.1),prob=c(0.025,0.975))
+mean(logistic(sm.x$Circumcision.2-sm.x$Circumcision.1)); quantile(logistic(sm.x$Circumcision.2-sm.x$Circumcision.1),prob=c(0.025,0.975))
+
+mean(exp(sm.x$Marriage)); quantile(exp(sm.x$Marriage),prob=c(0.025,0.975))
+single <- logistic(sm.x$a)
+married <-logistic(sm.x$Marriage+sm.x$a)
+marriage.diff <-married-single 
+mean(marriage.diff); quantile(marriage.diff, prob=c(0.025,0.975))
+
+mean(exp(sm.x$Sexual_debut.2-sm.x$Sexual_debut.1)); quantile(exp(sm.x$Sexual_debut.2-sm.x$Sexual_debut.1),prob=c(0.025,0.975))
+mean(exp(sm.x$Sexual_debut.3-sm.x$Sexual_debut.1)); quantile(exp(sm.x$Sexual_debut.3-sm.x$Sexual_debut.1),prob=c(0.025,0.975))
+mean(logistic(sm.x$Sexual_debut.2-sm.x$Sexual_debut.1)); quantile(logistic(sm.x$Sexual_debut.2-sm.x$Sexual_debut.1),prob=c(0.025,0.975))
+mean(logistic(sm.x$Sexual_debut.3-sm.x$Sexual_debut.1)); quantile(logistic(sm.x$Sexual_debut.3-sm.x$Sexual_debut.1),prob=c(0.025,0.975))
+
+mean(exp(sm.x$Child_desire.2-sm.x$Child_desire.1)); quantile(exp(sm.x$Child_desire.2-sm.x$Child_desire.1),prob=c(0.025,0.975))
+mean(logistic(sm.x$Child_desire.2-sm.x$Child_desire.1)); quantile(logistic(sm.x$Child_desire.2-sm.x$Child_desire.1),prob=c(0.025,0.975))
+
+mean(exp(sm.x$Paid_sex.2-sm.x$Paid_sex.1)); quantile(exp(sm.x$Paid_sex.2-sm.x$Paid_sex.1),prob=c(0.025,0.975))
+mean(logistic(sm.x$Paid_sex.2-sm.x$Paid_sex.1)); quantile(logistic(sm.x$Paid_sex.2-sm.x$Paid_sex.1),prob=c(0.025,0.975))
+
+#refit the final selected model for concurrent sexual partnership but with strata
 set.seed(1988)
-csp.model4.final <- map2stan(
+csp.model4.f <- map2stan(
   alist(
     csp ~ dbinom(1,csp_p),
     logit(csp_p) <- a+a_clustno[clustno]+a_houseno[houseno]+Age[agegp]+Education[educ]+Employment[employ]+Travel[travel]+Circumcision[mmc]+Marriage*mstatus+Sexual_debut[agesexgp]+Child_desire[fertpref]+Paid_sex[paidsex],
@@ -367,30 +408,45 @@ csp.model4.final <- map2stan(
     s_clustno ~ dcauchy(0,1)), 
   data=as.data.frame(na.omit(male.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=7)
 
-summary(sm.model3.J)
+#Relative and absolute differences between covariate categories in predicting concurrent sexual partnership (Table 2)
+csp.x<-data.frame(extract.samples(csp.model4.f))
+mean(exp(csp.x$Age.2-csp.x$Age.1)); quantile(exp(csp.x$Age.2-csp.x$Age.1),prob=c(0.025,0.975))
+mean(exp(csp.x$Age.3-csp.x$Age.1)); quantile(exp(csp.x$Age.3-csp.x$Age.1),prob=c(0.025,0.975))
+mean(logistic(csp.x$Age.2-csp.x$Age.1)); quantile(logistic(csp.x$Age.2-csp.x$Age.1),prob=c(0.025,0.975))
+mean(logistic(csp.x$Age.3-csp.x$Age.1)); quantile(logistic(csp.x$Age.3-csp.x$Age.1),prob=c(0.025,0.975))
 
-J3<-data.frame(extract.samples(sm.model3.J))
-mean(logistic(J3$Age.1)); quantile(logistic(J3$Age.1),prob=c(0.025,0.975))
-mean(logistic(J3$Age.2)); quantile(logistic(J3$Age.2),prob=c(0.025,0.975))
-mean(logistic(J3$Age.3)); quantile(logistic(J3$Age.3),prob=c(0.025,0.975))
+mean(exp(csp.x$Education.2-csp.x$Education.1)); quantile(exp(csp.x$Education.2-csp.x$Education.1),prob=c(0.025,0.975))
+mean(exp(csp.x$Education.3-csp.x$Education.1)); quantile(exp(csp.x$Education.3-csp.x$Education.1),prob=c(0.025,0.975))
+mean(logistic(csp.x$Education.2-csp.x$Education.1)); quantile(logistic(csp.x$Education.2-csp.x$Education.1),prob=c(0.025,0.975))
+mean(logistic(csp.x$Education.3-csp.x$Education.1)); quantile(logistic(csp.x$Education.3-csp.x$Education.1),prob=c(0.025,0.975))
 
-mean(logistic(J3$Education.1)); quantile(logistic(J3$Education.1),prob=c(0.025,0.975))
-mean(logistic(J3$Education.2)); quantile(logistic(J3$Education.2),prob=c(0.025,0.975))
-mean(logistic(J3$Education.3)); quantile(logistic(J3$Education.3),prob=c(0.025,0.975))
+mean(exp(csp.x$Employment.2-csp.x$Employment.1)); quantile(exp(csp.x$Employment.2-csp.x$Employment.1),prob=c(0.025,0.975))
+mean(logistic(csp.x$Employment.2-csp.x$Employment.1)); quantile(logistic(csp.x$Employment.2-csp.x$Employment.1),prob=c(0.025,0.975))
 
-mean(logistic(J3$Employment.1)); quantile(logistic(J3$Employment.1),prob=c(0.025,0.975))
-mean(logistic(J3$Employment.2)); quantile(logistic(J3$Employment.2),prob=c(0.025,0.975))
+mean(exp(csp.x$Travel.2-csp.x$Travel.1)); quantile(exp(csp.x$Travel.2-csp.x$Travel.1),prob=c(0.025,0.975))
+mean(exp(csp.x$Travel.3-csp.x$Travel.1)); quantile(exp(csp.x$Travel.3-csp.x$Travel.1),prob=c(0.025,0.975))
+mean(logistic(csp.x$Travel.2-csp.x$Travel.1)); quantile(logistic(csp.x$Travel.2-csp.x$Travel.1),prob=c(0.025,0.975))
+mean(logistic(csp.x$Travel.3-csp.x$Travel.1)); quantile(logistic(csp.x$Travel.3-csp.x$Travel.1),prob=c(0.025,0.975))
 
-mean(logistic(J3$Travel.1)); quantile(logistic(J3$Travel.1),prob=c(0.025,0.975))
-mean(logistic(J3$Travel.2)); quantile(logistic(J3$Travel.2),prob=c(0.025,0.975))
-mean(logistic(J3$Travel.3)); quantile(logistic(J3$Travel.3),prob=c(0.025,0.975))
+mean(exp(csp.x$Circumcision.2-csp.x$Circumcision.1)); quantile(exp(csp.x$Circumcision.2-csp.x$Circumcision.1),prob=c(0.025,0.975))
+mean(logistic(csp.x$Circumcision.2-csp.x$Circumcision.1)); quantile(logistic(csp.x$Circumcision.2-csp.x$Circumcision.1),prob=c(0.025,0.975))
 
-mean(logistic(J3$Travel.1)); quantile(logistic(J3$Travel.1),prob=c(0.025,0.975))
-mean(logistic(J3$Travel.2)); quantile(logistic(J3$Travel.2),prob=c(0.025,0.975))
-mean(logistic(J3$Travel.3)); quantile(logistic(J3$Travel.3),prob=c(0.025,0.975))
+mean(exp(csp.x$Marriage)); quantile(exp(csp.x$Marriage),prob=c(0.025,0.975))
+csp.x$single <- logistic(csp.x$a)
+csp.x$married <-logistic(csp.x$Marriage+csp.x$a)
+marriage.diff <-csp.x$married-csp.x$single 
+mean(marriage.diff); quantile(marriage.diff, prob=c(0.025,0.975))
 
-mean(logistic(J3$Paid_sex.1)); quantile(logistic(J3$Paid_sex.1),prob=c(0.025,0.975))
-mean(logistic(J3$Paid_sex.2)); quantile(logistic(J3$Paid_sex.2),prob=c(0.025,0.975))
+mean(exp(csp.x$Sexual_debut.2-csp.x$Sexual_debut.1)); quantile(exp(csp.x$Sexual_debut.2-csp.x$Sexual_debut.1),prob=c(0.025,0.975))
+mean(exp(csp.x$Sexual_debut.3-csp.x$Sexual_debut.1)); quantile(exp(csp.x$Sexual_debut.3-csp.x$Sexual_debut.1),prob=c(0.025,0.975))
+mean(logistic(csp.x$Sexual_debut.2-csp.x$Sexual_debut.1)); quantile(logistic(csp.x$Sexual_debut.2-csp.x$Sexual_debut.1),prob=c(0.025,0.975))
+mean(logistic(csp.x$Sexual_debut.3-csp.x$Sexual_debut.1)); quantile(logistic(csp.x$Sexual_debut.3-csp.x$Sexual_debut.1),prob=c(0.025,0.975))
+
+mean(exp(csp.x$Child_desire.2-csp.x$Child_desire.1)); quantile(exp(csp.x$Child_desire.2-csp.x$Child_desire.1),prob=c(0.025,0.975))
+mean(logistic(csp.x$Child_desire.2-csp.x$Child_desire.1)); quantile(logistic(csp.x$Child_desire.2-csp.x$Child_desire.1),prob=c(0.025,0.975))
+
+mean(exp(csp.x$Paid_sex.2-csp.x$Paid_sex.1)); quantile(exp(csp.x$Paid_sex.2-csp.x$Paid_sex.1),prob=c(0.025,0.975))
+mean(logistic(csp.x$Paid_sex.2-csp.x$Paid_sex.1)); quantile(logistic(csp.x$Paid_sex.2-csp.x$Paid_sex.1),prob=c(0.025,0.975))
 
 #posterior density and traceplots of parameters (S1 Figure)
 sm.model4X <- data.frame(p=extract.samples(sm.model4))
@@ -801,8 +857,18 @@ abline(a=0,b=1,lty=2)
 for(i in 1:nrow(na.omit(male.sm)))
     lines(rep(na.omit(male.sm$sm[i]),2), c(sm.ppp.mu.PI[1,i],sm.ppp.mu.PI[2,i]), col=rangi2)
 
+#variance across intercept
+dev.off()
+par(mfrow=c(1,2))
+dens(sm.x$s_houseno, xlab="variance", main="A")
+dens(sm.x$s_clustno, col=rangi2, lwd=2, add=TRUE)
+text(2,0.85,"EA", col=rangi2)
+text(0.75, 2,"HH")
 
-
+dens(csp.x$s_houseno, xlab="variance", main="B")
+dens(csp.x$s_clustno, col=rangi2, lwd=2, add=TRUE)
+text(2,0.85,"EA", col=rangi2)
+text(0.75, 2,"HH")
 
 
 
