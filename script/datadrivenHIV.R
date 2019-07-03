@@ -1,598 +1,521 @@
+#Multilevel Bayesian Analysis of the predictors of Serial Monogamy and Concurrent Sexual Partnership 
 #written by Deus Thindwa
-#11/04/2019
+#01/07/2019
 
 #====================LOAD REQUIRED PACKAGES AND DATASET====================
 
-DDHP.packages <-c("foreign","tidyverse","janitor","readstata13","rethinking","rstan","plyr")
+DDHP.packages <-c("foreign","tidyverse","janitor","readstata13","rethinking","rstan","plyr","DataCombine")
 lapply(DDHP.packages, library, character.only=TRUE)
 
 #load male questionnaire csv
-male.dhs <-as_tibble(read.dta13("/Users/lsh1703394/Rproject/drivenHIV/data/male.dta"))
+male.label <-as_tibble(read.dta13("/Users/dthindwa/Rproject/drivenHIV/data/male.dta"))
 
-#subset the dataset to get appropriate variables
-male.DS <-select(male.dhs,mv766b,mv854a,mv001,mv002,mv012,mv025,mv106,mv731,mv130,mv190,mv167,mv213,mv761,mv483,
-                 mv501,mv525,mv602,mv605,mv754cp,mv754dp,mv770,mv826a,mv793,hiv03,mv822,mv834a)
+#subset the dataset to get all potential covariates
+male.label <-select(male.label,mv766b,mv854a,mv001,mv002,mv012,mv025,mv106,mv731,mv130,mv190,mv167,mv213,mv761,mv483,
+                 mv501,mv525,mv602,mv605,mv754cp,mv754dp,mv770,mv826a,mv793,mv793A,hiv03,mv822,mv834a)
 
-#rename variables to appropriately use them
-colnames(male.DS) <-c("mcsp","csp","clustno","houseno","age","resid","educ","employ","rel","windex","travel",
+#rename variables for appropriate use in the models
+colnames(male.label) <-c("mcsp","csp","clustno","houseno","age","resid","educ","employ","rel","windex","travel",
                        "partpreg","condom","mmc","mstatus","agesex","fertprof","fertpref",
-                       "hiv_condoms","hiv_1part","stdcounsel","hivtest","paidsex","hivres","sexinfl","agepart")
+                       "hiv_condoms","hiv_1part","stdcounsel","hivtest","paidsex","paidsexcondom","hivres","sexinfl","agepart")
 
 #====================RECODE OUTCOME VARIABLES AND POTENTIAL COVARIATES====================
 
 #MCSP (multiple and concurrent sexual partnership) = SM (serial monogamy) + CSP (concurrent sexual partnership)
-male.DSF <-subset(male.DS,mcsp>=1)
-male.DSF$mcsp <-if_else(male.DSF$mcsp==1,0,1)
+male.label <-subset(male.label,mcsp>=1)
+male.label$mcsp <-if_else(male.label$mcsp==1,0,1)
 
 #Define SM (serial monogamy)
-male.DSF$sm <-if_else(is.na(male.DSF$csp),0,if_else(male.DSF$csp=="no",1,NULL))
-male.DSF %>% tabyl(sm, show_na=FALSE) %>% adorn_pct_formatting(digits=1)
+male.label$sm <-if_else(is.na(male.label$csp),0L,if_else(male.label$csp=="no",1L,NULL))
+male.label %>% tabyl(sm, show_na=FALSE) %>% adorn_pct_formatting(digits=1)
 
 #Define CSP (concurrent sexual partnership)
-male.DSF$csp <-if_else(is.na(male.DSF$csp),0,if_else(male.DSF$csp=="yes",1,NULL))
-male.DSF %>% tabyl(csp, show_na=FALSE) %>% adorn_pct_formatting(digits=1)
+male.label$csp <-if_else(is.na(male.label$csp),0L,if_else(male.label$csp=="yes",1L,NULL))
+male.label %>% tabyl(csp, show_na=FALSE) %>% adorn_pct_formatting(digits=1)
 
 #Respondent male age
-male.DSF$agegp <-if_else(male.DSF$age>=15 & male.DSF$age<20,1,if_else(male.DSF$age>=20 & male.DSF$age<30,2,3))
-male.DSF$agegp <-recode_factor(male.DSF$agegp,`1`="15-19",`2`="20-29",`3`="30+")
+male.label$agegp <-if_else(male.label$age>=15 & male.label$age<20,1,if_else(male.label$age>=20 & male.label$age<30,2,3))
+male.label$agegp <-recode_factor(male.label$agegp,`1`="15-19",`2`="20-29",`3`="30+")
 
 #Education
-male.DSF$educ <-recode_factor(male.DSF$educ,`no education`="1",`primary`="2",`secondary`="3",`higher`="3")
-male.DSF$educ <-recode_factor(male.DSF$educ,`1`="no education",`2`="primary",`3`="secondary")
+male.label$educ <-recode_factor(male.label$educ,`no education`="1",`primary`="2",`secondary`="3",`higher`="3")
+male.label$educ <-recode_factor(male.label$educ,`1`="no education",`2`="primary",`3`="secondary")
 
 #Employment
-male.DSF$employ <-recode_factor(male.DSF$employ,`no`="1",`in the past year`="1",`currently working`="2")
-male.DSF$employ <-recode_factor(male.DSF$employ,`1`="none",`2`="working")
+male.label$employ <-recode_factor(male.label$employ,`no`="1",`in the past year`="1",`currently working`="2")
+male.label$employ <-recode_factor(male.label$employ,`1`="none",`2`="working")
 
 #Travel away from home
-male.DSF$travel <-if_else(male.DSF$travel==0,1,if_else(male.DSF$travel>0 & male.DSF$travel<=6,2,3))
-male.DSF$travel <-recode_factor(male.DSF$travel,`1`="none",`2`="less times",`3`="more times")
+male.label$travel <-if_else(male.label$travel==0,1,if_else(male.label$travel>0 & male.label$travel<=6,2,3))
+male.label$travel <-recode_factor(male.label$travel,`1`="none",`2`="less times",`3`="more times")
 
 #Male circumcision
-male.DSF$mmc <-recode_factor(male.DSF$mmc,`no`="1",`don't know`="1",`yes`="2")
-male.DSF$mmc <-recode_factor(male.DSF$mmc,`1`="no",`2`="yes")
+male.label$mmc <-recode_factor(male.label$mmc,`no`="1",`don't know`="1",`yes`="2")
+male.label$mmc <-recode_factor(male.label$mmc,`1`="no",`2`="yes")
 
 #Age at first sex (marriage age in Malawi used to be 16+ at the time of MDHS but now 18+)
-male.DSF$agesexgp <-if_else(male.DSF$agesex<16,1,if_else(male.DSF$agesex>=16 & male.DSF$agesex<20,2,3))
-male.DSF$agesexgp <-recode_factor(male.DSF$agesexgp,`1`="<16",`2`="16-19",`3`="20+")
+male.label$agesexgp <-if_else(male.label$agesex<16,1,if_else(male.label$agesex>=16 & male.label$agesex<20,2,3))
+male.label$agesexgp <-recode_factor(male.label$agesexgp,`1`="<16",`2`="16-19",`3`="20+")
 
 #Child desire
-male.DSF$fertpref <- if_else(male.DSF$fertpref=="wants no more",1,if_else(male.DSF$fertpref=="wants after 2+ years",1,
-                     if_else(male.DSF$fertpref=="wants, unsure timing",1,if_else(male.DSF$fertpref=="wants within 2 years",2,NULL))))
-male.DSF$fertpref <-recode_factor(male.DSF$fertpref,`1`="no",`2`="yes")
+male.label$fertpref <- if_else(male.label$fertpref=="wants no more",1,if_else(male.label$fertpref=="wants after 2+ years",1,
+                     if_else(male.label$fertpref=="wants within 2 years",2,3)));male.label$fertpref[is.na(male.label$fertpref)]<-3
+male.label$fertpref <-recode_factor(male.label$fertpref,`1`="no",`2`="yes",`3`="unsure")
 
 #Paid sex
-male.DSF$paidsex <-recode_factor(male.DSF$paidsex,`no`="1",`yes`="2")
-male.DSF$paidsex <-recode_factor(male.DSF$paidsex,`1`="no",`2`="yes")
+male.label$paidsex <-recode_factor(male.label$paidsex,`no`="1",`yes`="2")
+male.label$paidsex <-recode_factor(male.label$paidsex,`1`="no",`2`="yes")
 
 #====================TABULATE COVARIATES BY OUTCOME VARIABLE (TABLE 1.0)====================
 
-mean(male.DSF$age); sd(male.DSF$age)
-ddply(male.DSF, .(mcsp==1), summarize, mean=mean(age),sd=sd(age))
-ddply(male.DSF, .(is.na(sm)), summarize, mean=mean(age), sd=sd(age))
-ddply(male.DSF, .(is.na(csp)), summarize, mean=mean(age), sd=sd(age))
-male.DSF %>% tabyl(agegp,show_na=FALSE) %>% adorn_pct_formatting(digits=1)
-male.DSF %>% tabyl(agegp,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-male.DSF %>% tabyl(agegp,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-chisq.test(male.DSF$agegp,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$agegp,male.DSF$csp, correct=TRUE)
+#Calculate the Mean+SD of the age of participant and age at first sex
+male.label <-subset(male.label, select=c(clustno,houseno,mcsp,sm,csp,age,agegp,educ,employ,travel,mmc,agesexgp,agesex,fertpref,paidsex))
+ddply(male.label,.(!is.na(mcsp)),summarize, mean=mean(age),sd=sd(age)) #overall
+ddply(male.label,.(mcsp==1),summarize, mean=mean(age),sd=sd(age)) #single partnership
+ddply(male.label, .(!is.na(sm)), summarize, mean=mean(age), sd=sd(age)) #serial monogamy
+ddply(male.label, .(!is.na(csp)), summarize, mean=mean(age), sd=sd(age)) #concurrent sexual partnership
+male.label$age<-NULL #remove age
 
-male.DSF %>% tabyl(educ,show_na=FALSE) %>% adorn_pct_formatting(digits=1) 
-male.DSF %>% tabyl(educ,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-male.DSF %>% tabyl(educ,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-chisq.test(male.DSF$educ,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$educ,male.DSF$csp, correct=TRUE)
+#Calculate the Mean+SD of the age at sexual debut
+ddply(male.label, .(!is.na(mcsp)), summarize, mean=mean(agesex),sd=sd(agesex)) #overall
+ddply(male.label, .(mcsp==1), summarize, mean=mean(agesex),sd=sd(agesex)) #single partnership
+ddply(male.label, .(!is.na(sm)), summarize, mean=mean(agesex), sd=sd(agesex)) #serial monogamy
+ddply(male.label, .(!is.na(csp)), summarize, mean=mean(agesex), sd=sd(agesex)) #concurrent sexual partnership
+male.label$agesex<-NULL #remove age
 
-male.DSF %>% tabyl(employ,show_na=FALSE) %>% adorn_pct_formatting(digits=1) 
-male.DSF %>% tabyl(employ,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-male.DSF %>% tabyl(employ,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-chisq.test(male.DSF$employ,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$employ,male.DSF$csp, correct=TRUE)
+#Iterate while tabulating the proportion of outcome for each predictor variable
+for(i in colnames(male.label[c(6:13)])){
+  print(tabyl(male.label[[i]],show_na=FALSE) %>% adorn_pct_formatting(digits=1))
+};remove(i)
 
-male.DSF %>% tabyl(travel,show_na=FALSE) %>% adorn_pct_formatting(digits=1) 
-male.DSF %>% tabyl(travel,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-male.DSF %>% tabyl(travel,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-chisq.test(male.DSF$travel,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$travel,male.DSF$csp, correct=TRUE)
+for(i in colnames(male.label[c(6:13)])){
+  print(tabyl(male.label[[i]][male.label$mcsp==0],show_na=FALSE) %>% adorn_pct_formatting(digits=1))
+};remove(i)
 
-male.DSF %>% tabyl(mmc,show_na=FALSE) %>% adorn_pct_formatting(digits=1) 
-male.DSF %>% tabyl(mmc,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-male.DSF %>% tabyl(mmc,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-chisq.test(male.DSF$mmc,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$mmc,male.DSF$csp, correct=TRUE)
+for(i in colnames(male.label[c(6:13)])){
+  print(tabyl(male.label[[i]][male.label$sm==1],show_na=FALSE) %>% adorn_pct_formatting(digits=1))
+};remove(i)
 
-mean(male.DSF$agesex); sd(male.DSF$agesex)
-ddply(male.DSF, .(mcsp==1), summarize, mean=mean(agesex),sd=sd(agesex))
-ddply(male.DSF, .(is.na(sm)), summarize, mean=mean(agesex), sd=sd(agesex))
-ddply(male.DSF, .(is.na(csp)), summarize, mean=mean(agesex), sd=sd(agesex))
-male.DSF %>% tabyl(agesexgp,show_na=FALSE) %>% adorn_pct_formatting(digits=1) 
-male.DSF %>% tabyl(agesexgp,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-male.DSF %>% tabyl(agesexgp,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-chisq.test(male.DSF$agesexgp,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$agesexgp,male.DSF$csp, correct=TRUE)
+for(i in colnames(male.label[c(6:13)])){
+  print(tabyl(male.label[[i]][male.label$csp==1],show_na=FALSE) %>% adorn_pct_formatting(digits=1))
+};remove(i)
 
-male.DSF %>% tabyl(fertpref,show_na=FALSE) %>% adorn_pct_formatting(digits=1) 
-male.DSF %>% tabyl(fertpref,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-male.DSF %>% tabyl(fertpref,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-chisq.test(male.DSF$fertpref,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$fertpref,male.DSF$csp, correct=TRUE)
+#Chi-squared tests for associations between each predictor variable and each outcome variable
+for(i in colnames(male.label[c(6:13)])){
+  print(chisq.test(male.label[[i]],male.label$sm))
+};remove(i)
 
-male.DSF %>% tabyl(paidsex,show_na=FALSE) %>% adorn_pct_formatting(digits=1) 
-male.DSF %>% tabyl(paidsex,sm,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-male.DSF %>% tabyl(paidsex,csp,show_na=FALSE) %>% adorn_percentages("col") %>% adorn_pct_formatting(digits=1) %>% adorn_ns()
-chisq.test(male.DSF$paidsex,male.DSF$sm, correct=TRUE); chisq.test(male.DSF$paidsex,male.DSF$csp, correct=TRUE)
+for(i in colnames(male.label[c(6:13)])){
+  print(chisq.test(male.label[[i]],male.label$sm))
+};remove(i)
 
-male.label <-subset(male.DSF, select=c(clustno,houseno,sm,csp,agegp,educ,employ,travel,mmc,agesexgp,fertpref,paidsex))
-male <-subset(male.DSF, select=c(clustno,houseno,sm,csp,agegp,educ,employ,travel,mmc,agesexgp,fertpref,paidsex))
-rm(male.dhs, male.DS,male.DSF)
+#create a coded dataset for model fitting while keeping labels in original dataset
+male <-subset(male.label, select=c(clustno,houseno,sm,csp,agegp,educ,employ,travel,mmc,agesexgp,fertpref,paidsex))
 
 #====================PREPARE DATASETS FOR MODEL FITTING====================
 
-#recode all predictors to represent integer class for binomial model fitting
+#recode all predictor variables to represent integer class for binomial model fitting
 male$agegp <-coerce_index(recode_factor(male$agegp,`15-19`=1L,`20-29`=2L,`30+`=3L))
 male$educ <-coerce_index(recode_factor(male$educ,`no education`=1L,`primary`=2L,`secondary`=3L))
 male$employ <-coerce_index(recode_factor(male$employ,`none`=1L,`working`=2L))
 male$travel <-coerce_index(recode_factor(male$travel,`none`=1L,`less times`=2L,`more times`=3L))
 male$mmc <-coerce_index(recode_factor(male$mmc,`no`=1L,`yes`=2L))
 male$agesexgp <-coerce_index(recode_factor(male$agesexgp,`<16`=1L,`16-19`=2L,`20+`=3L))
-male$fertpref <-coerce_index(recode_factor(male$fertpref,`no`=1L,`yes`=2L))
+male$fertpref <-coerce_index(recode_factor(male$fertpref,`no`=1L,`yes`=2L,`unsure`=3L))
 male$paidsex <-coerce_index(recode_factor(male$paidsex,`no`=1L,`yes`=2L))
 
-#integerize the enumeration area and household ids so they are contiguous.
+#Subset the dataset to get serial monogamy separate from concurrent sexual partnership
 male.sm <- subset(male,!is.na(sm)); male.sm <- male.sm[,-4]
 male.csp <- subset(male,!is.na(csp)); male.csp <- male.csp[-3]
 
-male.sm$sm<-recode_factor(male.sm$sm,`0`=0L,`1`=1L)
-male.csp$csp<-recode_factor(male.csp$csp,`0`=0L,`1`=1L)
+#Integerize the enumeration area and household ids so they are contiguous
+male.sm$houseno <- coerce_index(male.sm$houseno)
 male.sm$clustno <- coerce_index(male.sm$clustno)
+male.csp$houseno <- coerce_index(male.csp$houseno)
 male.csp$clustno <- coerce_index(male.csp$clustno)
-male$houseno <- coerce_index(male$houseno)
-sort(unique(male$clustno))
-sort(unique(male$houseno))
 
-#create separate datasets for each outcome and remove NAs
-#enumeration areas restricted to maximum of 843 due to lack of enough data in cluster >843
-male.sm <- subset(male,!is.na(sm)); male.sm <- male.sm[,-4]
-male.csp <- subset(male,!is.na(csp)); male.csp <- male.csp[-3]
-male.sm$clustno[male.sm$clustno >843] <- 843 
-male.csp$clustno[male.csp$clustno >843] <- 843
-rm(male)
+#==============FIT MODELS FOR SERIAL MONOGAMY AND SAMPLE FROM POSTERIOR DISTRIBUTION USING HALMITONIAN MCMC==================
 
-#==============FIT MODELS FOR "SM" AND SAMPLE FROM POST.DISTR USING HMC==================
-
-#model1: without random-effects
+#model1: a model without random-effects variables
 set.seed(1988)
 sm.model1 <- map2stan(
   alist(sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+Age*agegp+Education*educ+Employment*employ+Travel*travel+Circumcision*mmc+Marriage*mstatus+Sexual_debut*agesexgp+Child_desire*fertpref+Paid_sex*paidsex,
-    c(Age,Education,Employment,Travel,Circumcision,Marriage,Sexual_debut,Child_desire,Paid_sex) ~ dnorm(0,1),
+    logit(sm_p) <- a+age*agegp+education*educ+employment*employ+travel_times*travel+circumcision*mmc+sexual_debut*agesexgp+child_desire*fertpref+paid_sex*paidsex,
+    c(age,education,employment,travel_times,circumcision,sexual_debut,child_desire,paid_sex) ~ dnorm(0,1),
     a ~ dnorm(0,1)), 
-    data=as.data.frame(na.omit(male.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=9)
+    data=as.data.frame(na.omit(male.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=1988)
 
-#model2: with household random-effects variable
 set.seed(1988)
+sm.model1p <- map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+age[agegp]+education[educ]+employment[employ]+travel_times[travel]+circumcision[mmc]+sexual_debut[agesexgp]+child_desire[fertpref]+paid_sex[paidsex],
+    age[agegp] ~ dnorm(0,1),
+    education[educ] ~ dnorm(0,1),
+    employment[employ] ~ dnorm(0,1),
+    travel_times[travel] ~ dnorm(0,1),
+    circumcision[mmc] ~ dnorm(0,1),
+    sexual_debut[agesexgp] ~ dnorm(0,1),
+    child_desire[fertpref] ~ dnorm(0,1),
+    paid_sex[paidsex] ~ dnorm(0,1),
+    a ~ dnorm(0,1)), 
+  data=as.data.frame(na.omit(male.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=1988)
+
+#model2: a model with household as random-effects variable
+set.seed(2040)
 sm.model2 <- map2stan(
-  alist(
-    sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+a_houseno[houseno]+Age*agegp+Education*educ+Employment*employ+Travel*travel+Circumcision*mmc+Marriage*mstatus+Sexual_debut*agesexgp+Child_desire*fertpref+Paid_sex*paidsex,
-    c(Age,Education,Employment,Travel,Circumcision,Marriage,Sexual_debut,Child_desire,Paid_sex) ~ dnorm(0,1),
-    a ~ dnorm(0,1), 
-    a_houseno[houseno] ~ dnorm(0,s_houseno),
-    s_houseno ~ dcauchy(0,1)), 
-    data=as.data.frame(na.omit(male.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=8)
-
-#model3: with enumeration area random-effects variable
-set.seed(1988)
-sm.model3 <- map2stan(
-  alist(
-    sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+a_clustno[clustno]+Age*agegp+Education*educ+Employment*employ+Travel*travel+Circumcision*mmc+Marriage*mstatus+Sexual_debut*agesexgp+Child_desire*fertpref+Paid_sex*paidsex,
-    c(Age,Education,Employment,Travel,Circumcision,Marriage,Sexual_debut,Child_desire,Paid_sex) ~ dnorm(0,1),
-    a ~ dnorm(0,1), 
-    a_clustno[clustno] ~ dnorm(0,s_clustno),
-    s_clustno ~ dcauchy(0,1)), 
-  data=as.data.frame(na.omit(male.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=7)
-
-#model4: with household and enumeration area random-effects variables
-set.seed(1988)
-sm.model4 <- map2stan(
-  alist(
-    sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+a_houseno[houseno]+a_clustno[clustno]+Age*agegp+Education*educ+Employment*employ+Travel*travel+Circumcision*mmc+Marriage*mstatus+Sexual_debut*agesexgp+Child_desire*fertpref+Paid_sex*paidsex,
-    c(Age,Education,Employment,Travel,Circumcision,Marriage,Sexual_debut,Child_desire,Paid_sex) ~ dnorm(0,1),
+  alist(sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+a_houseno[houseno]+age*agegp+education*educ+employment*employ+travel_times*travel+circumcision*mmc+sexual_debut*agesexgp+child_desire*fertpref+paid_sex*paidsex,
+    c(age,education,employment,travel_times,circumcision,sexual_debut,child_desire,paid_sex) ~ dnorm(0,1),
     a ~ dnorm(0,1),
     a_houseno[houseno] ~ dnorm(0,s_houseno),
+    s_houseno ~ dcauchy(0,1)),
+  data=as.data.frame(na.omit(male.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=2040)
+
+set.seed(2040)
+sm.model2p <- map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+a_houseno[houseno]+age[agegp]+education[educ]+employment[employ]+travel_times[travel]+circumcision[mmc]+sexual_debut[agesexgp]+child_desire[fertpref]+paid_sex[paidsex],
+    age[agegp] ~ dnorm(0,1),
+    education[educ] ~ dnorm(0,1),
+    employment[employ] ~ dnorm(0,1),
+    travel_times[travel] ~ dnorm(0,1),
+    circumcision[mmc] ~ dnorm(0,1),
+    sexual_debut[agesexgp] ~ dnorm(0,1),
+    child_desire[fertpref] ~ dnorm(0,1),
+    paid_sex[paidsex] ~ dnorm(0,1),
+    a ~ dnorm(0,1),
+    a_houseno[houseno] ~ dnorm(0,s_houseno),
+    s_houseno ~ dcauchy(0,1)),
+  data=as.data.frame(na.omit(male.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=2040)
+
+#model3: a model with enumeration area as random-effects variable
+set.seed(1717)
+sm.model3 <- map2stan(
+  alist(sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+a_clustno[clustno]+age*agegp+education*educ+employment*employ+travel_times*travel+circumcision*mmc+sexual_debut*agesexgp+child_desire*fertpref+paid_sex*paidsex,
+    c(age,education,employment,travel_times,circumcision,sexual_debut,child_desire,paid_sex) ~ dnorm(0,1),
+    a ~ dnorm(0,1),
     a_clustno[clustno] ~ dnorm(0,s_clustno),
-    s_houseno ~ dcauchy(0,1),
     s_clustno ~ dcauchy(0,1)),
-  data=as.data.frame(na.omit(male.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=6)
+  data=as.data.frame(na.omit(male.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=1717)
 
-#==============SERIAL MONOGAMY MODEL AND MCMC DIAGNOSTICS==================
+set.seed(1717)
+sm.model3p <- map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+a_clustno[clustno]+age[agegp]+education[educ]+employment[employ]+travel_times[travel]+circumcision[mmc]+sexual_debut[agesexgp]+child_desire[fertpref]+paid_sex[paidsex],
+    age[agegp] ~ dnorm(0,1),
+    education[educ] ~ dnorm(0,1),
+    employment[employ] ~ dnorm(0,1),
+    travel_times[travel] ~ dnorm(0,1),
+    circumcision[mmc] ~ dnorm(0,1),
+    sexual_debut[agesexgp] ~ dnorm(0,1),
+    child_desire[fertpref] ~ dnorm(0,1),
+    paid_sex[paidsex] ~ dnorm(0,1),
+    a ~ dnorm(0,1),
+    a_clustno[clustno] ~ dnorm(0,s_clustno),
+    s_clustno ~ dcauchy(0,1)),
+  data=as.data.frame(na.omit(male.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=1717)
+save.image()
+#model4: a model with household and enumeration area random-effects variables
+set.seed(3939)
+sm.model4 <- map2stan(
+  alist(sm ~ dbinom(1,sm_p),
+        logit(sm_p) <- a+a_clustno[clustno]+a_houseno[houseno]+age*agegp+education*educ+employment*employ+travel_times*travel+circumcision*mmc+sexual_debut*agesexgp+child_desire*fertpref+paid_sex*paidsex,
+        c(age,education,employment,travel_times,circumcision,sexual_debut,child_desire,paid_sex) ~ dnorm(0,1),
+        a ~ dnorm(0,1),
+        a_clustno[clustno] ~ dnorm(0,s_clustno),
+        s_clustno ~ dcauchy(0,1),
+        a_houseno[houseno] ~ dnorm(0,s_houseno),
+        s_houseno ~ dcauchy(0,1)),
+  data=as.data.frame(na.omit(male.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=3939)
 
-#checking models' convergence and covariate correlation
-cov.par=c("Age","Education","Employment","Travel","Circumcision","Marriage","Sexual_debut","Child_desire","Paid_sex")
-plot(sm.model1, pars=cov.par)
-pairs(sm.model1, pars=cov.par)
-summary(sm.model1)
+set.seed(3939)
+sm.model4p <- map2stan(
+  alist(
+    sm ~ dbinom(1,sm_p),
+    logit(sm_p) <- a+a_clustno[clustno]+a_houseno[houseno]+age[agegp]+education[educ]+employment[employ]+travel_times[travel]+circumcision[mmc]+sexual_debut[agesexgp]+child_desire[fertpref]+paid_sex[paidsex],
+    age[agegp] ~ dnorm(0,1),
+    education[educ] ~ dnorm(0,1),
+    employment[employ] ~ dnorm(0,1),
+    travel_times[travel] ~ dnorm(0,1),
+    circumcision[mmc] ~ dnorm(0,1),
+    sexual_debut[agesexgp] ~ dnorm(0,1),
+    child_desire[fertpref] ~ dnorm(0,1),
+    paid_sex[paidsex] ~ dnorm(0,1),
+    a ~ dnorm(0,1),
+    a_clustno[clustno] ~ dnorm(0,s_clustno),
+    s_clustno ~ dcauchy(0,1),
+    a_houseno[houseno] ~ dnorm(0,s_houseno),
+    s_houseno ~ dcauchy(0,1)),
+  data=as.data.frame(na.omit(male.sm)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=3939)
+save.image()
+#==============FIT MODELS FOR CONCURRENT SEXUAL PARTNERSHIP AND SAMPLE FROM POSTERIOR DISTRIBUTION USING HALMITONIAN MCMC==================
 
-plot(sm.model2, pars=cov.par)
-pairs(sm.model2, pars=cov.par)
-summary(sm.model2)
-
-plot(sm.model3, pars=cov.par)
-pairs(sm.model3, pars=cov.par)
-summary(sm.model3)
-
-plot(sm.model4, pars=cov.par)
-pairs(sm.model4, pars=cov.par)
-summary(sm.model4)
-
-#checking divergence of mcmc
-divergent(sm.model1)
-divergent(sm.model2)
-divergent(sm.model3)
-divergent(sm.model4)
-
-#full report of sampler parameters
-dev.off()
-dashboard(sm.model1)
-dashboard(sm.model2)
-dashboard(sm.model3)
-dashboard(sm.model4)
-
-#==============FIT MODELS FOR "CSP" AND SAMPLE FROM POST.DISTR USING HMC==================
-
-#model1: without random-effects
+#model1: a model without random-effects variables
 set.seed(1988)
 csp.model1 <- map2stan(
   alist(csp ~ dbinom(1,csp_p),
-        logit(csp_p) <- a+Age*agegp+Education*educ+Employment*employ+Travel*travel+Circumcision*mmc+Marriage*mstatus+Sexual_debut*agesexgp+Child_desire*fertpref+Paid_sex*paidsex,
-        c(Age,Education,Employment,Travel,Circumcision,Marriage,Sexual_debut,Child_desire,Paid_sex) ~ dnorm(0,1),
+        logit(csp_p) <- a+age*agegp+education*educ+employment*employ+travel_times*travel+circumcision*mmc+sexual_debut*agesexgp+child_desire*fertpref+paid_sex*paidsex,
+        c(age,education,employment,travel_times,circumcision,sexual_debut,child_desire,paid_sex) ~ dnorm(0,1),
         a ~ dnorm(0,1)), 
-  data=as.data.frame(na.omit(male.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=9)
+  data=as.data.frame(na.omit(male.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=1988)
 
-#model2: with household random-effects variable
 set.seed(1988)
+csp.model1p <- map2stan(
+  alist(
+    csp ~ dbinom(1,csp_p),
+    logit(csp_p) <- a+age[agegp]+education[educ]+employment[employ]+travel_times[travel]+circumcision[mmc]+sexual_debut[agesexgp]+child_desire[fertpref]+paid_sex[paidsex],
+    age[agegp] ~ dnorm(0,1),
+    education[educ] ~ dnorm(0,1),
+    employment[employ] ~ dnorm(0,1),
+    travel_times[travel] ~ dnorm(0,1),
+    circumcision[mmc] ~ dnorm(0,1),
+    sexual_debut[agesexgp] ~ dnorm(0,1),
+    child_desire[fertpref] ~ dnorm(0,1),
+    paid_sex[paidsex] ~ dnorm(0,1),
+    a ~ dnorm(0,1)), 
+  data=as.data.frame(na.omit(male.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=1988)
+save.image()
+#model2: a model with household as random-effects variable
+set.seed(2040)
 csp.model2 <- map2stan(
-  alist(
-    csp ~ dbinom(1,csp_p),
-    logit(csp_p) <- a+a_houseno[houseno]+Age*agegp+Education*educ+Employment*employ+Travel*travel+Circumcision*mmc+Marriage*mstatus+Sexual_debut*agesexgp+Child_desire*fertpref+Paid_sex*paidsex,
-    c(Age,Education,Employment,Travel,Circumcision,Marriage,Sexual_debut,Child_desire,Paid_sex) ~ dnorm(0,1),
-    a ~ dnorm(0,1), 
-    a_houseno[houseno] ~ dnorm(0,s_houseno),
-    s_houseno ~ dcauchy(0,1)), 
-  data=as.data.frame(na.omit(male.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=8)
+  alist(csp ~ dbinom(1,csp_p),
+        logit(csp_p) <- a+a_houseno[houseno]+age*agegp+education*educ+employment*employ+travel_times*travel+circumcision*mmc+sexual_debut*agesexgp+child_desire*fertpref+paid_sex*paidsex,
+        c(age,education,employment,travel_times,circumcision,sexual_debut,child_desire,paid_sex) ~ dnorm(0,1),
+        a ~ dnorm(0,1),
+        a_houseno[houseno] ~ dnorm(0,s_houseno),
+        s_houseno ~ dcauchy(0,1)),
+  data=as.data.frame(na.omit(male.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=2040)
 
-#model3: with enumeration area random-effects variable
-set.seed(1988)
-csp.model3 <- map2stan(
+set.seed(2040)
+csp.model2p <- map2stan(
   alist(
     csp ~ dbinom(1,csp_p),
-    logit(csp_p) <- a+a_clustno[clustno]+Age*agegp+Education*educ+Employment*employ+Travel*travel+Circumcision*mmc+Marriage*mstatus+Sexual_debut*agesexgp+Child_desire*fertpref+Paid_sex*paidsex,
-    c(Age,Education,Employment,Travel,Circumcision,Marriage,Sexual_debut,Child_desire,Paid_sex) ~ dnorm(0,1),
-    a ~ dnorm(0,1), 
-    a_clustno[clustno] ~ dnorm(0,s_clustno),
-    s_clustno ~ dcauchy(0,1)), 
-  data=as.data.frame(na.omit(male.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=7)
-
- #model4: with household and enumeration area random-effects variables
-set.seed(1988)
-csp.model4 <- map2stan(
-  alist(
-    csp ~ dbinom(1,csp_p),
-    logit(csp_p) <- a+a_houseno[houseno]+a_clustno[clustno]+Age*agegp+Education*educ+Employment*employ+Travel*travel+Circumcision*mmc+Marriage*mstatus+Sexual_debut*agesexgp+Child_desire*fertpref+Paid_sex*paidsex,
-    c(Age,Education,Employment,Travel,Circumcision,Marriage,Sexual_debut,Child_desire,Paid_sex) ~ dnorm(0,1),
+    logit(csp_p) <- a+a_houseno[houseno]+age[agegp]+education[educ]+employment[employ]+travel_times[travel]+circumcision[mmc]+sexual_debut[agesexgp]+child_desire[fertpref]+paid_sex[paidsex],
+    age[agegp] ~ dnorm(0,1),
+    education[educ] ~ dnorm(0,1),
+    employment[employ] ~ dnorm(0,1),
+    travel_times[travel] ~ dnorm(0,1),
+    circumcision[mmc] ~ dnorm(0,1),
+    sexual_debut[agesexgp] ~ dnorm(0,1),
+    child_desire[fertpref] ~ dnorm(0,1),
+    paid_sex[paidsex] ~ dnorm(0,1),
     a ~ dnorm(0,1),
     a_houseno[houseno] ~ dnorm(0,s_houseno),
-    a_clustno[clustno] ~ dnorm(0,s_clustno),
-    s_houseno ~ dcauchy(0,1),
-    s_clustno ~ dcauchy(0,1)),
-  data=as.data.frame(na.omit(male.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=6)
+    s_houseno ~ dcauchy(0,1)),
+  data=as.data.frame(na.omit(male.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=2040)
+save.image()
+#model3: a model with enumeration area as random-effects variable
+set.seed(1717)
+csp.model3 <- map2stan(
+  alist(csp ~ dbinom(1,csp_p),
+        logit(csp_p) <- a+a_clustno[clustno]+age*agegp+education*educ+employment*employ+travel_times*travel+circumcision*mmc+sexual_debut*agesexgp+child_desire*fertpref+paid_sex*paidsex,
+        c(age,education,employment,travel_times,circumcision,sexual_debut,child_desire,paid_sex) ~ dnorm(0,1),
+        a ~ dnorm(0,1),
+        a_clustno[clustno] ~ dnorm(0,s_clustno),
+        s_clustno ~ dcauchy(0,1)),
+  data=as.data.frame(na.omit(male.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=1717)
 
-#==============CONCURRENT SEXUAL PARTNERSHIP MODEL AND MCMC DIAGNOSTICS==================
-
-#checking models' convergence and covariate correlation
-plot(csp.model1, pars=cov.par)
-pairs(csp.model1, pars=cov.par)
-summary(csp.model1)
-
-plot(csp.model2, pars=cov.par)
-pairs(csp.model2, pars=cov.par)
-summary(csp.model2)
-
-plot(csp.model3, pars=cov.par)
-pairs(csp.model3, pars=cov.par)
-summary(csp.model3)
-
-plot(csp.model4, pars=cov.par)
-pairs(csp.model4, pars=cov.par)
-summary(csp.model4)
-
-#checking divergence of mcmc
-divergent(csp.model1)
-divergent(csp.model2)
-divergent(csp.model3)
-divergent(csp.model4)
-
-#full report of sampler parameters
-dev.off()
-dashboard(csp.model1)
-dashboard(csp.model2)
-dashboard(csp.model3)
-dashboard(csp.model4)
-
-#==============POSTERIOR ANALYSIS==================
-
-male.sm$mstatus <- if_else(male.sm$mstatus==1L,0L,1L) #so can extract single(0) and married(1) since marriage not entering models as index variable
-
-#refit the final selected model for SM but with strata
-set.seed(7)
-sm.model4.f <- map2stan(
-  alist(
-    sm ~ dbinom(1,sm_p),
-    logit(sm_p) <- a+a_clustno[clustno]+a_houseno[houseno]+Age[agegp]+Education[educ]+Employment[employ]+Travel[travel]+Circumcision[mmc]+Marriage[mstatus]+Sexual_debut[agesexgp]+Child_desire[fertpref]+Paid_sex[paidsex],
-    Age[agegp] ~ dnorm(0,1),
-    Education[educ] ~ dnorm(0,1),
-    Employment[employ] ~ dnorm(0,1),
-    Travel[travel] ~ dnorm(0,1),
-    Circumcision[mmc] ~ dnorm(0,1),
-    Marriage[mstatus] ~ dnorm(0,1),
-    Sexual_debut[agesexgp] ~ dnorm(0,1),
-    Child_desire[fertpref] ~ dnorm(0,1),
-    Paid_sex[paidsex] ~ dnorm(0,1),
-    a ~ dnorm(0,1), 
-    a_houseno[houseno] ~ dnorm(0,s_houseno),
-    a_clustno[clustno] ~ dnorm(0,s_clustno),
-    s_houseno ~ dcauchy(0,1),
-    s_clustno ~ dcauchy(0,1)), 
-  data=as.data.frame(na.omit(male.sm)),chains=1,iter=4000,warmup=1000,cores=3,rng_seed=7)
-
-#Probability of serial monogamy and concurrent sexual partnership by covariate levels (Table 2)
-sm.x<-data.frame(extract.samples(sm.model4.f))
-sm.x <- subset(sm.x[,1:22])
-sm.x <- sm.x[c(1:13,15:21,22,14)]
-for(i in colnames(sm.x)){
-      print(precis(data.frame(logistic(sm.x[[i]])),prob=0.95),justify="right",digits=3)
-}
-precis(data.frame(logistic(sm.x$a)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Marriage+sm.x$a)),prob=0.95,digits=3)
-
-csp.x<-data.frame(extract.samples(csp.model4.f))
-csp.x <- subset(csp.x[,1:22])
-csp.x <- csp.x[c(1:13,15:21,22,14)]
-for(i in colnames(csp.x)){
-  print(precis(data.frame(logistic(csp.x[[i]])),prob=0.95),justify="right",digits=3)
-}
-precis(data.frame(logistic(csp.x$a)),prob=0.95,digits=3)
-precis(data.frame(logistic(csp.x$Marriage+sm.x$a)),prob=0.95,digits=3)
-
-#Probability of serial monogamy and concurrent sexual partnership by covariate levels (Table 2)
-precis(data.frame(logistic(sm.x$Age.2-sm.x$Age.1)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Age.3-sm.x$Age.1)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Education.1)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Education.2)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Education.3)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Employment.1)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Employment.2)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Travel.1)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Travel.2)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Travel.3)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Circumcision.1)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Circumcision.2)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Sexual_debut.1)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Sexual_debut.2)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Sexual_debut.3)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Child_desire.1)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Child_desire.2)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Paid_sex.1)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Paid_sex.2)),prob=0.95,digits=3)
-
-precis(data.frame(logistic(sm.x$a)),prob=0.95)
-precis(data.frame(logistic(sm.x$Marriage+sm.x$a)),prob=0.95)
-
-#Differences in probability of serial monogamy and concurrent sexual partnership by covariate levels (Table 2)
-precis(data.frame(logistic(sm.x$Age.2-sm.x$Age.1)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Age.3-sm.x$Age.1)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Education.2-sm.x$Education.1)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Education.3-sm.x$Education.1)),prob=0.95,digits=3)
-precis(data.frame(logistic(sm.x$Employment.2-sm.x$Employment.1)),prob=0.95,digits=3)
-
-
-
-mean(logistic(sm.x$Travel.2-sm.x$Travel.1)); quantile(logistic(sm.x$Travel.2-sm.x$Travel.1),prob=c(0.025,0.975))
-mean(logistic(sm.x$Travel.3-sm.x$Travel.1)); quantile(logistic(sm.x$Travel.3-sm.x$Travel.1),prob=c(0.025,0.975))
-
-mean(exp(sm.x$Circumcision.2-sm.x$Circumcision.1)); quantile(exp(sm.x$Circumcision.2-sm.x$Circumcision.1),prob=c(0.025,0.975))
-mean(logistic(sm.x$Circumcision.2-sm.x$Circumcision.1)); quantile(logistic(sm.x$Circumcision.2-sm.x$Circumcision.1),prob=c(0.025,0.975))
-
-mean(exp(sm.x$Marriage)); quantile(exp(sm.x$Marriage),prob=c(0.025,0.975))
-mean(logistic(sm.x$Marriage+sm.x$a)); quantile(logistic(sm.x$Marriage+sm.x$a),prob=c(0.025,0.975))
-precis(data.frame(exp(sm.x$a)),prob=0.95)
-precis(data.frame(logistic(sm.x$Marriage+sm.x$a)),prob=0.95)
-
-mean(exp(sm.x$Sexual_debut.2-sm.x$Sexual_debut.1)); quantile(exp(sm.x$Sexual_debut.2-sm.x$Sexual_debut.1),prob=c(0.025,0.975))
-mean(exp(sm.x$Sexual_debut.3-sm.x$Sexual_debut.1)); quantile(exp(sm.x$Sexual_debut.3-sm.x$Sexual_debut.1),prob=c(0.025,0.975))
-mean(logistic(sm.x$Sexual_debut.2-sm.x$Sexual_debut.1)); quantile(logistic(sm.x$Sexual_debut.2-sm.x$Sexual_debut.1),prob=c(0.025,0.975))
-mean(logistic(sm.x$Sexual_debut.3-sm.x$Sexual_debut.1)); quantile(logistic(sm.x$Sexual_debut.3-sm.x$Sexual_debut.1),prob=c(0.025,0.975))
-
-mean(exp(sm.x$Child_desire.2-sm.x$Child_desire.1)); quantile(exp(sm.x$Child_desire.2-sm.x$Child_desire.1),prob=c(0.025,0.975))
-mean(logistic(sm.x$Child_desire.2-sm.x$Child_desire.1)); quantile(logistic(sm.x$Child_desire.2-sm.x$Child_desire.1),prob=c(0.025,0.975))
-
-mean(exp(sm.x$Paid_sex.2-sm.x$Paid_sex.1)); quantile(exp(sm.x$Paid_sex.2-sm.x$Paid_sex.1),prob=c(0.025,0.975))
-mean(logistic(sm.x$Paid_sex.2-sm.x$Paid_sex.1)); quantile(logistic(sm.x$Paid_sex.2-sm.x$Paid_sex.1),prob=c(0.025,0.975))
-
-#refit the final selected model for concurrent sexual partnership but with strata
-set.seed(1988)
-csp.model4.f <- map2stan(
+set.seed(1717)
+csp.model3p <- map2stan(
   alist(
     csp ~ dbinom(1,csp_p),
-    logit(csp_p) <- a+a_clustno[clustno]+a_houseno[houseno]+Age[agegp]+Education[educ]+Employment[employ]+Travel[travel]+Circumcision[mmc]+Marriage*mstatus+Sexual_debut[agesexgp]+Child_desire[fertpref]+Paid_sex[paidsex],
-    Age[agegp] ~ dnorm(0,1),
-    Education[educ] ~ dnorm(0,1),
-    Employment[employ] ~ dnorm(0,1),
-    Travel[travel] ~ dnorm(0,1),
-    Circumcision[mmc] ~ dnorm(0,1),
-    Marriage ~ dnorm(0,1),
-    Sexual_debut[agesexgp] ~ dnorm(0,1),
-    Child_desire[fertpref] ~ dnorm(0,1),
-    Paid_sex[paidsex] ~ dnorm(0,1),
-    a ~ dnorm(0,1), 
-    a_houseno[houseno] ~ dnorm(0,s_houseno),
+    logit(csp_p) <- a+a_clustno[clustno]+age[agegp]+education[educ]+employment[employ]+travel_times[travel]+circumcision[mmc]+sexual_debut[agesexgp]+child_desire[fertpref]+paid_sex[paidsex],
+    age[agegp] ~ dnorm(0,1),
+    education[educ] ~ dnorm(0,1),
+    employment[employ] ~ dnorm(0,1),
+    travel_times[travel] ~ dnorm(0,1),
+    circumcision[mmc] ~ dnorm(0,1),
+    sexual_debut[agesexgp] ~ dnorm(0,1),
+    child_desire[fertpref] ~ dnorm(0,1),
+    paid_sex[paidsex] ~ dnorm(0,1),
+    a ~ dnorm(0,1),
     a_clustno[clustno] ~ dnorm(0,s_clustno),
-    s_houseno ~ dcauchy(0,1),
-    s_clustno ~ dcauchy(0,1)), 
-  data=as.data.frame(na.omit(male.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=7)
+    s_clustno ~ dcauchy(0,1)),
+  data=as.data.frame(na.omit(male.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=1717)
+save.image()
+#model4: a model with household and enumeration area random-effects variables
+set.seed(3939)
+csp.model4 <- map2stan(
+  alist(csp ~ dbinom(1,csp_p),
+        logit(csp_p) <- a+a_clustno[clustno]+a_houseno[houseno]+age*agegp+education*educ+employment*employ+travel_times*travel+circumcision*mmc+sexual_debut*agesexgp+child_desire*fertpref+paid_sex*paidsex,
+        c(age,education,employment,travel_times,circumcision,sexual_debut,child_desire,paid_sex) ~ dnorm(0,1),
+        a ~ dnorm(0,1),
+        a_clustno[clustno] ~ dnorm(0,s_clustno),
+        s_clustno ~ dcauchy(0,1),
+        a_houseno[houseno] ~ dnorm(0,s_houseno),
+        s_houseno ~ dcauchy(0,1)),
+  data=as.data.frame(na.omit(male.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=3939)
 
-#Relative and absolute differences between covariate categories in predicting concurrent sexual partnership (Table 2)
-csp.x<-data.frame(extract.samples(csp.model4.f))
-mean(exp(csp.x$Age.2-csp.x$Age.1)); quantile(exp(csp.x$Age.2-csp.x$Age.1),prob=c(0.025,0.975))
-mean(exp(csp.x$Age.3-csp.x$Age.1)); quantile(exp(csp.x$Age.3-csp.x$Age.1),prob=c(0.025,0.975))
-mean(logistic(csp.x$Age.2-csp.x$Age.1)); quantile(logistic(csp.x$Age.2-csp.x$Age.1),prob=c(0.025,0.975))
-mean(logistic(csp.x$Age.3-csp.x$Age.1)); quantile(logistic(csp.x$Age.3-csp.x$Age.1),prob=c(0.025,0.975))
+set.seed(3939)
+csp.model4p <- map2stan(
+  alist(
+    csp ~ dbinom(1,csp_p),
+    logit(csp_p) <- a+a_clustno[clustno]+a_houseno[houseno]+age[agegp]+education[educ]+employment[employ]+travel_times[travel]+circumcision[mmc]+sexual_debut[agesexgp]+child_desire[fertpref]+paid_sex[paidsex],
+    age[agegp] ~ dnorm(0,1),
+    education[educ] ~ dnorm(0,1),
+    employment[employ] ~ dnorm(0,1),
+    travel_times[travel] ~ dnorm(0,1),
+    circumcision[mmc] ~ dnorm(0,1),
+    sexual_debut[agesexgp] ~ dnorm(0,1),
+    child_desire[fertpref] ~ dnorm(0,1),
+    paid_sex[paidsex] ~ dnorm(0,1),
+    a ~ dnorm(0,1),
+    a_clustno[clustno] ~ dnorm(0,s_clustno),
+    s_clustno ~ dcauchy(0,1),
+    a_houseno[houseno] ~ dnorm(0,s_houseno),
+    s_houseno ~ dcauchy(0,1)),
+  data=as.data.frame(na.omit(male.csp)),chains=4,iter=4000,warmup=1000,cores=3,rng_seed=3939)
+save.image()
+#==============POSTERIOR DISTRIBUTION ASSESSMENT THROUGH TRACEPLOTS, PAIRSPLOTS==================
 
-mean(exp(csp.x$Education.2-csp.x$Education.1)); quantile(exp(csp.x$Education.2-csp.x$Education.1),prob=c(0.025,0.975))
-mean(exp(csp.x$Education.3-csp.x$Education.1)); quantile(exp(csp.x$Education.3-csp.x$Education.1),prob=c(0.025,0.975))
-mean(logistic(csp.x$Education.2-csp.x$Education.1)); quantile(logistic(csp.x$Education.2-csp.x$Education.1),prob=c(0.025,0.975))
-mean(logistic(csp.x$Education.3-csp.x$Education.1)); quantile(logistic(csp.x$Education.3-csp.x$Education.1),prob=c(0.025,0.975))
-
-mean(exp(csp.x$Employment.2-csp.x$Employment.1)); quantile(exp(csp.x$Employment.2-csp.x$Employment.1),prob=c(0.025,0.975))
-mean(logistic(csp.x$Employment.2-csp.x$Employment.1)); quantile(logistic(csp.x$Employment.2-csp.x$Employment.1),prob=c(0.025,0.975))
-
-mean(exp(csp.x$Travel.2-csp.x$Travel.1)); quantile(exp(csp.x$Travel.2-csp.x$Travel.1),prob=c(0.025,0.975))
-mean(exp(csp.x$Travel.3-csp.x$Travel.1)); quantile(exp(csp.x$Travel.3-csp.x$Travel.1),prob=c(0.025,0.975))
-mean(logistic(csp.x$Travel.2-csp.x$Travel.1)); quantile(logistic(csp.x$Travel.2-csp.x$Travel.1),prob=c(0.025,0.975))
-mean(logistic(csp.x$Travel.3-csp.x$Travel.1)); quantile(logistic(csp.x$Travel.3-csp.x$Travel.1),prob=c(0.025,0.975))
-
-mean(exp(csp.x$Circumcision.2-csp.x$Circumcision.1)); quantile(exp(csp.x$Circumcision.2-csp.x$Circumcision.1),prob=c(0.025,0.975))
-mean(logistic(csp.x$Circumcision.2-csp.x$Circumcision.1)); quantile(logistic(csp.x$Circumcision.2-csp.x$Circumcision.1),prob=c(0.025,0.975))
-
-mean(exp(csp.x$Marriage)); quantile(exp(csp.x$Marriage),prob=c(0.025,0.975))
-csp.x$single <- logistic(csp.x$a)
-csp.x$married <-logistic(csp.x$Marriage+csp.x$a)
-marriage.diff <-csp.x$married-csp.x$single 
-mean(marriage.diff); quantile(marriage.diff, prob=c(0.025,0.975))
-
-mean(exp(csp.x$Sexual_debut.2-csp.x$Sexual_debut.1)); quantile(exp(csp.x$Sexual_debut.2-csp.x$Sexual_debut.1),prob=c(0.025,0.975))
-mean(exp(csp.x$Sexual_debut.3-csp.x$Sexual_debut.1)); quantile(exp(csp.x$Sexual_debut.3-csp.x$Sexual_debut.1),prob=c(0.025,0.975))
-mean(logistic(csp.x$Sexual_debut.2-csp.x$Sexual_debut.1)); quantile(logistic(csp.x$Sexual_debut.2-csp.x$Sexual_debut.1),prob=c(0.025,0.975))
-mean(logistic(csp.x$Sexual_debut.3-csp.x$Sexual_debut.1)); quantile(logistic(csp.x$Sexual_debut.3-csp.x$Sexual_debut.1),prob=c(0.025,0.975))
-
-mean(exp(csp.x$Child_desire.2-csp.x$Child_desire.1)); quantile(exp(csp.x$Child_desire.2-csp.x$Child_desire.1),prob=c(0.025,0.975))
-mean(logistic(csp.x$Child_desire.2-csp.x$Child_desire.1)); quantile(logistic(csp.x$Child_desire.2-csp.x$Child_desire.1),prob=c(0.025,0.975))
-
-mean(exp(csp.x$Paid_sex.2-csp.x$Paid_sex.1)); quantile(exp(csp.x$Paid_sex.2-csp.x$Paid_sex.1),prob=c(0.025,0.975))
-mean(logistic(csp.x$Paid_sex.2-csp.x$Paid_sex.1)); quantile(logistic(csp.x$Paid_sex.2-csp.x$Paid_sex.1),prob=c(0.025,0.975))
-
-#posterior density and traceplots of parameters (S1 Figure)
-sm.model4X <- data.frame(p=extract.samples(sm.model4))
-sm.model4X <- sm.model4X[,1:9]
-csp.model4X <- data.frame(p=extract.samples(csp.model4))
-csp.model4X <- csp.model4X[,1:9]
-
+##iterate for all models fitted above from sm.model1 through csp.model4p
+posterior.cov = c("age","education","employment","travel_times","circumcision","sexual_debut","child_desire","paid_sex")
 dev.off()
-par(mfrow=c(3,6),mai = c(0.6, 0.4, 0.2, 0.1))
-plot(logistic(sm.model4X$p.Age), col="lightblue", xlab="",ylab="",main="A",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(sm.model4X$p.Age),xlab="",ylab="",main="A",col="darkblue",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+plot(sm.model1); pairs(sm.model1); summary(sm.model1); divergent(sm.model1); dashboard(sm.model1)
+#*everything looks perfectly fitted*
 
-plot(logistic(sm.model4X$p.Education), col="lightblue", xlab="",ylab="",main="B",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(sm.model4X$p.Education),xlab="",ylab="",main="B",col="darkblue",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+#==============ANALYSIS OF THE POSTERIOR DISTRIBUTION==================
 
-plot(logistic(sm.model4X$p.Employment), col="lightblue", xlab="",ylab="",main="C",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(sm.model4X$p.Employment),xlab="",ylab="",main="C",col="darkblue",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+#Absolute Predicted Risk of serial monogamy and concurrent sexual partnership by covariate levels (Table 2)
+sm.extract<-data.frame(extract.samples(sm.model4p))
+csp.extract<-data.frame(extract.samples(csp.model4p))
 
-plot(logistic(sm.model4X$p.Travel), col="lightblue", xlab="",ylab="",main="D",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(sm.model4X$p.Travel),xlab="",ylab="",main="D",col="darkblue",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+for(i in colnames(sm.extract[,1:21])){
+      print(precis(data.frame(logistic(sm.extract[[i]])),prob=0.95),justify="right",digits=3)
+};remove(i)
 
-plot(logistic(sm.model4X$p.Circumcision), col="lightblue", xlab="",ylab="",main="E",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(sm.model4X$p.Circumcision),xlab="",ylab="",main="E",col="darkblue",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+for(i in colnames(csp.extract[,1:21])){
+  print(precis(data.frame(logistic(csp.extract[[i]])),prob=0.95),justify="right",digits=3)
+};remove(i)
 
-plot(logistic(sm.model4X$p.Marriage), col="lightblue", xlab="",ylab="",main="F",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(sm.model4X$p.Marriage),xlab="",ylab="",main="F",col="darkblue",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+#Differences in predicted risk of serial monogamy between the baseline and other covariate levels (Table 2)
+precis(logistic(sm.extract$age.2-sm.extract$age.1),prob=0.95,digits=3) #age group 20-29
+precis(logistic(sm.extract$age.3-sm.extract$age.1),prob=0.95,digits=3) #age group 30+
+precis(logistic(sm.extract$education.2-sm.extract$education.1),prob=0.95,digits=3) #primary
+precis(logistic(sm.extract$education.3-sm.extract$education.1),prob=0.95,digits=3) #secondary
+precis(logistic(sm.extract$employment.2-sm.extract$employment.1),prob=0.95,digits=3) #working
+precis(logistic(sm.extract$travel_times.2-sm.extract$travel_times.1),prob=0.95,digits=3) #less travel
+precis(logistic(sm.extract$travel_times.3-sm.extract$travel_times.1),prob=0.95,digits=3) #more travel
+precis(logistic(sm.extract$circumcision.2-sm.extract$circumcision.1),prob=0.95,digits=3) #circumcised
+precis(logistic(sm.extract$sexual_debut.2-sm.extract$sexual_debut.1),prob=0.95,digits=3) #age sex debut 16-19
+precis(logistic(sm.extract$sexual_debut.3-sm.extract$sexual_debut.1),prob=0.95,digits=3) #age sex debut 16-19
+precis(logistic(sm.extract$child_desire.2-sm.extract$child_desire.1),prob=0.95,digits=3) #desire child
+precis(logistic(sm.extract$child_desire.3-sm.extract$child_desire.1),prob=0.95,digits=3) #notsure
+precis(logistic(sm.extract$paid_sex.2-sm.extract$paid_sex.1),prob=0.95,digits=3) #paid for sex
 
-plot(logistic(sm.model4X$p.Sexual_debut), col="lightblue", xlab="",ylab="",main="G",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(sm.model4X$p.Sexual_debut),xlab="",ylab="",main="G",col="darkblue",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+#Differences in predicted risk of concurrent sexual partnership between the baseline and other covariate levels (Table 2)
+precis(logistic(csp.extract$age.2-csp.extract$age.1),prob=0.95,digits=3) #age group 20-29
+precis(logistic(csp.extract$age.3-csp.extract$age.1),prob=0.95,digits=3) #age group 30+
+precis(logistic(csp.extract$education.2-csp.extract$education.1),prob=0.95,digits=3) #primary
+precis(logistic(csp.extract$education.3-csp.extract$education.1),prob=0.95,digits=3) #secondary
+precis(logistic(csp.extract$employment.2-csp.extract$employment.1),prob=0.95,digits=3) #working
+precis(logistic(csp.extract$travel_times.2-csp.extract$travel_times.1),prob=0.95,digits=3) #less travel
+precis(logistic(csp.extract$travel_times.3-csp.extract$travel_times.1),prob=0.95,digits=3) #more travel
+precis(logistic(csp.extract$circumcision.2-csp.extract$circumcision.1),prob=0.95,digits=3) #circumcised
+precis(logistic(csp.extract$sexual_debut.2-csp.extract$sexual_debut.1),prob=0.95,digits=3) #age sex debut 16-19
+precis(logistic(csp.extract$sexual_debut.3-csp.extract$sexual_debut.1),prob=0.95,digits=3) #age sex debut 16-19
+precis(logistic(csp.extract$child_desire.2-csp.extract$child_desire.1),prob=0.95,digits=3) #desire child
+precis(logistic(csp.extract$child_desire.3-csp.extract$child_desire.1),prob=0.95,digits=3) #notsure
+precis(logistic(csp.extract$paid_sex.2-csp.extract$paid_sex.1),prob=0.95,digits=3) #paid for sex
 
-plot(logistic(sm.model4X$p.Child_desire), col="lightblue", xlab="",ylab="",main="H",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(sm.model4X$p.Child_desire),xlab="",ylab="",main="H",col="darkblue",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+#model comparisons using WAIC for serial monogamy (supplementary figure 1)
+dev.off()
+cov.par1=c("age[1]","age[2]","age[3]","education[1]","education[2]","education[3]","employment[1]")
+cov.par2=c("employment[2]","travel_times[1]","travel_times[2]","travel_times[3]","circumcision[1]","circumcision[2]","sexual_debut[1]")
+cov.par3=c("sexual_debut[2]","sexual_debut[3]","child_desire[1]","child_desire[2]","child_desire[3]","paid_sex[1]","paid_sex[2]")
+par(mfrow=c(1,4),mai=c(0.9,0,0.5,0.1))
+plot(compare(sm.model1p,sm.model2p,sm.model3p,sm.model4p))
+title(main="A",line=-1,adj=0.35)
+plot(coeftab(sm.model2p,sm.model1p,sm.model3p,sm.model4p),pars=cov.par1)
+title(main="B_1",line=-1,adj=0.5)
+plot(coeftab(sm.model2p,sm.model1p,sm.model3p,sm.model4p),pars=cov.par2)
+title(main="B_2",line=-1,adj=0.5)
+plot(coeftab(sm.model2p,sm.model1p,sm.model3p,sm.model4p),pars=cov.par3)
+title(main="B_3",line=-1,adj=0.5)
 
-plot(logistic(sm.model4X$p.Paid_sex), col="lightblue", xlab="",ylab="",main="I",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(sm.model4X$p.Paid_sex),xlab="",ylab="",main="I",col="darkblue",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
+#model comparisons using WAIC for concurrent sexual partnership (supplementary figure 2)
+dev.off()
+cov.par1=c("age[1]","age[2]","age[3]","education[1]","education[2]","education[3]","employment[1]")
+cov.par2=c("employment[2]","travel_times[1]","travel_times[2]","travel_times[3]","circumcision[1]","circumcision[2]","sexual_debut[1]")
+cov.par3=c("sexual_debut[2]","sexual_debut[3]","child_desire[1]","child_desire[2]","child_desire[3]","paid_sex[1]","paid_sex[2]")
+par(mfrow=c(1,4),mai=c(0.9,0,0.5,0.1))
+plot(compare(csp.model1p,csp.model2p,csp.model3p,csp.model4p))
+title(main="A",line=-1,adj=0.35)
+plot(coeftab(csp.model2p,csp.model1p,csp.model3p,csp.model4p),pars=cov.par1)
+title(main="B_1",line=-1,adj=0.5)
+plot(coeftab(csp.model2p,csp.model1p,csp.model3p,csp.model4p),pars=cov.par2)
+title(main="B_2",line=-1,adj=0.5)
+plot(coeftab(csp.model2p,csp.model1p,csp.model3p,csp.model4p),pars=cov.par3)
+title(main="B_3",line=-1,adj=0.5)
+
+#posterior samples and traceplots of parameters (supplementary figure 3, figure 4)
+dev.off()
+par(mfrow=c(3,7),mai = c(0.6, 0.4, 0.2, 0.1))
+
+par.values<-data.frame(extract.samples(csp.model4p))
+par.values<-par.values[,1:21]
+par.values<-InsertRow(par.values, c("age[15-19]","age[20-29]","age[30+]","education[none]","education[prim]",
+"education[second]","employment[none]","employment[working]","travel_times[none]","travel_times[less]","travel_times[more]",
+"circumcision[no]","circumcision[yes]","sexual_debut[<16]","sexual_debut[16-19]","sexual_debut[20+]",
+"child_desire[no]","child_desire[yes]","child_desire[unsure]","paid_sex[no]","paid_sex[yes]"), RowNum=1)
+par.values <- par.values[!(par.values$age.1 !="age[15-19]"),]
+
+for(i in colnames(sm.extract[,1:21])){
+  plot(logistic(sm.extract[[i]]), col="lightblue", xlab="",ylab="",main="",type="l",ylim=c(0,1))
+  mtext(par.values[[i]],side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7)
+  };remove(i)
+
+for(i in colnames(csp.extract[,1:21])){
+  plot(logistic(csp.extract[[i]]), col="red3", xlab="",ylab="",main="",type="l",ylim=c(0,1))
+  mtext(par.values[[i]],side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7)
+};remove(i);remove(par.values)
+
+#Posterior predictive checks (supplementary figure 4)
+dev.off()
+par(mfrow=c(2,2),mai = c(0.6, 0.8, 0.3, 0.1))
+
+sm.ppp.mu <- link(sm.model4p)
+sm.ppp.mu.mean <- apply(sm.ppp.mu,2,mean)
+sm.ppp.mu.PI <- apply(sm.ppp.mu,2,PI)
+sm.ppp.sim <- sim(sm.model4p, n=10)
+sm.ppp.CI <- apply(sm.ppp.sim,2,PI)
+plot(sm.ppp.mu.mean ~ sm , col=rangi2, ylim=range(sm.ppp.mu.PI),xlab="",ylab="predicted serial monogamy", data=na.omit(male.sm))
+abline(a=0,b=1,lty=2)
+for(i in 1:nrow(na.omit(male.sm))) lines(rep(na.omit(male.sm$sm[i]),2), c(sm.ppp.mu.PI[1,i],sm.ppp.mu.PI[2,i]), col="red3")
+mtext("observed serial monogamy",side=1,line=2,cex=1)
+mtext("A",side=3,line=0,cex=1.5)
+
+csp.ppp.mu <- link(csp.model4p)
+csp.ppp.mu.mean <- apply(csp.ppp.mu,2,mean)
+csp.ppp.mu.PI <- apply(csp.ppp.mu,2,PI)
+csp.ppp.sim <- sim(csp.model4p, n=10)
+csp.ppp.CI <- apply(csp.ppp.sim,2,PI)
+plot(csp.ppp.mu.mean ~ csp , col=rangi2, ylim=range(csp.ppp.mu.PI),xlab="",ylab="predicted concurrent sexual partners", data=na.omit(male.csp))
+abline(a=0,b=1,lty=2)
+for(i in 1:nrow(na.omit(male.csp))) lines(rep(na.omit(male.csp$csp[i]),2), c(csp.ppp.mu.PI[1,i],csp.ppp.mu.PI[2,i]), col="red3")
+mtext("observed concurrent sexual partners",side=1,line=2,cex=1)
+mtext("B",side=3,line=0,cex=1.5)
+
+dens(sm.extract$s_clustno, xlab="", main="",ylim=c(0,6),xlim=c(0,1))
+dens(sm.extract$s_houseno, col=rangi2, lwd=2, add=TRUE)
+text(0.3,6,"Enumeration area", col=rangi2)
+text(0.70, 4.5,"Household")
+mtext("variance",side=1,line=2,cex=1)
+mtext("C",side=3,line=0,cex=1.5)
+
+dens(csp.extract$s_clustno, xlab="", main="",ylim=c(0,6),xlim=c(0,1))
+dens(csp.extract$s_houseno, col=rangi2, lwd=2, add=TRUE)
+text(0.3,4.3,"Enumeration area", col=rangi2)
+text(0.6, 2.8,"Household")
+mtext("variance",side=1,line=2,cex=1)
+mtext("D",side=3,line=0,cex=1.5)
+
 #-------------------------------------------------------------------------------------
-dev.off()
-par(mfrow=c(3,6),mai = c(0.6, 0.4, 0.2, 0.1))
-plot(logistic(csp.model4X$p.Age), col="red1", xlab="",ylab="",main="A",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(csp.model4X$p.Age),xlab="",ylab="",main="A",col="red3",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
-
-plot(logistic(csp.model4X$p.Education), col="red1", xlab="",ylab="",main="B",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(csp.model4X$p.Education),xlab="",ylab="",main="B",col="red3",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
-
-plot(logistic(csp.model4X$p.Employment), col="red1", xlab="",ylab="",main="C",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(csp.model4X$p.Employment),xlab="",ylab="",main="C",col="red3",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
-
-plot(logistic(csp.model4X$p.Travel), col="red1", xlab="",ylab="",main="D",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(csp.model4X$p.Travel),xlab="",ylab="",main="D",col="red3",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
-
-plot(logistic(csp.model4X$p.Circumcision), col="red1", xlab="",ylab="",main="E",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(csp.model4X$p.Circumcision),xlab="",ylab="",main="E",col="red3",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
-
-plot(logistic(csp.model4X$p.Marriage), col="red1", xlab="",ylab="",main="F",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(csp.model4X$p.Marriage),xlab="",ylab="",main="F",col="red3",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
-
-plot(logistic(csp.model4X$p.Sexual_debut), col="red1", xlab="",ylab="",main="G",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(csp.model4X$p.Sexual_debut),xlab="",ylab="",main="G",col="red3",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
-
-plot(logistic(csp.model4X$p.Child_desire), col="red1", xlab="",ylab="",main="H",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(csp.model4X$p.Child_desire),xlab="",ylab="",main="H",col="red3",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
-
-plot(logistic(csp.model4X$p.Paid_sex), col="red1", xlab="",ylab="",main="I",type="l")
-mtext("Posterior samples",side=1,line=2,cex=0.7); mtext("",side=2,line=2,cex=0.7)
-dens(logistic(csp.model4X$p.Paid_sex),xlab="",ylab="",main="I",col="red3",lwd=3)
-mtext("Density",side=2,line=2,cex=0.7);mtext("Probability",side=1,line=2,cex=0.7)
-
-#model comparison and posterior means plots for each outcome (S2 Figure)
-dev.off()
-cov.par=c("Age","Education","Employment","Travel","Circumcision","Marriage","Sexual_debut","Child_desire","Paid_sex")
-par(mfrow=c(1,2),mai=c(0.9,0,0.5,0.1))
-plot(compare(sm.model1,sm.model2,sm.model3,sm.model4))
-title(main="A",line=-1,adj=0.3)
-plot(coeftab(sm.model2,sm.model1,sm.model3,sm.model4),pars=cov.par)
-title(main="B",line=-1,adj=0.3)
-
-dev.off()
-par(mfrow=c(1,2),mai=c(0.9,0,0.5,0.1))
-plot(compare(csp.model2,csp.model1,csp.model3,csp.model4))
-title(main="A",line=-1,adj=0.3)
-plot(coeftab(csp.model2,csp.model1,csp.model3,csp.model4),pars=cov.par)
-title(main="B",line=-1,adj=0.3)
-
-#counterfactual plot (marginal posterior predictions) of each predictor of sm (Figure 1)
+#counterfactual plot (marginal posterior predictions) of each predictor of sm (main text figure)
 #-------------------------------------------------------------------------------------
 cov.par=c("Age","Education","Employment","Travel","Circumcision","Marriage","Sexual_debut","Child_desire","Paid_sex")
 cov.seq3=seq.int(from=1, to=3, length.out=30)
@@ -872,31 +795,7 @@ shade(csp_paidsex.PI,cov.seq2,col=rainbow(70, alpha = 0.4))
 legend("topleft", legend=c("SM", "CSP"), col=c("darkblue", "red3"), lty=1:1, cex=0.7, lwd=2)
 
 #-------------------------------------------------------------------------------------
-#posterior predictive plot
-sm.ppp.mu <- link(sm.model4)
-sm.ppp.mu.mean <- apply(sm.ppp.mu,2,mean)
-sm.ppp.mu.PI <- apply(sm.ppp.mu,2,PI)
-sm.ppp.sim <- sim(sm.model4, n=10)
-sm.ppp.CI <- apply(sm.ppp.sim,2,PI)
 
-dev.off()
-plot(sm.ppp.mu.mean ~ sm , col=rangi2, ylim=range(sm.ppp.mu.PI),xlab="observed SM",ylab="predicted SM", data=na.omit(male.sm))
-abline(a=0,b=1,lty=2)
-for(i in 1:nrow(na.omit(male.sm)))
-    lines(rep(na.omit(male.sm$sm[i]),2), c(sm.ppp.mu.PI[1,i],sm.ppp.mu.PI[2,i]), col=rangi2)
-
-#variance across intercept
-dev.off()
-par(mfrow=c(1,2))
-dens(sm.x$s_houseno, xlab="variance", main="A")
-dens(sm.x$s_clustno, col=rangi2, lwd=2, add=TRUE)
-text(2,0.85,"EA", col=rangi2)
-text(0.75, 2,"HH")
-
-dens(csp.x$s_houseno, xlab="variance", main="B")
-dens(csp.x$s_clustno, col=rangi2, lwd=2, add=TRUE)
-text(2,0.85,"EA", col=rangi2)
-text(0.75, 2,"HH")
 
 
 
