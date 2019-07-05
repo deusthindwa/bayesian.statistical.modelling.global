@@ -474,19 +474,19 @@ for(i in colnames(csp.extract[,1:21])){
   mtext(par.values[[i]],side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7)
 };remove(i);remove(par.values)
 
-#Posterior predictive checks (supplementary figure 4)
+#Posterior predictive and varying effects checks (supplementary figure 4)
 dev.off()
 par(mfrow=c(2,2),mai = c(0.6, 0.8, 0.3, 0.1))
 
-sm.ppp.mu <- link(sm.model4p)
-sm.ppp.mu.mean <- apply(sm.ppp.mu,2,mean)
-sm.ppp.mu.PI <- apply(sm.ppp.mu,2,PI)
-sm.ppp.sim <- sim(sm.model4p, n=10)
-sm.ppp.CI <- apply(sm.ppp.sim,2,PI)
-plot(sm.ppp.mu.mean ~ sm , col=rangi2, ylim=range(sm.ppp.mu.PI),xlab="",ylab="predicted serial monogamy", data=na.omit(male.sm))
+sm.link <- link(sm.model4p, data=na.omit(male.sm))
+sm.mean <- apply(sm.link,2,mean)
+sm.PI <- apply(sm.link,2,PI)
+sm.sim <- sim(sm.model4p, n=10)
+sm.CI <- apply(sm.sim,2,PI)
+plot(sm.mean ~ sm , col=rangi2, ylim=range(sm.PI),xlab="",ylab="predicted serial monogamy", data=na.omit(male.sm))
 abline(a=0,b=1,lty=2)
-for(i in 1:nrow(na.omit(male.sm))) lines(rep(na.omit(male.sm$sm[i]),2), c(sm.ppp.mu.PI[1,i],sm.ppp.mu.PI[2,i]), col="red3")
-mtext("observed serial monogamy",side=1,line=2,cex=1)
+for(i in 1:nrow(na.omit(male.sm))) lines(rep(na.omit(male.sm$sm[i]),2), c(sm.PI[1,i],sm.PI[2,i]), col="red3")
+mtext("observed serial monogamy",side=1,line=2,cex=0.9)
 mtext("A",side=3,line=0,cex=1.5)
 
 csp.ppp.mu <- link(csp.model4p)
@@ -497,7 +497,7 @@ csp.ppp.CI <- apply(csp.ppp.sim,2,PI)
 plot(csp.ppp.mu.mean ~ csp , col=rangi2, ylim=range(csp.ppp.mu.PI),xlab="",ylab="predicted concurrent sexual partners", data=na.omit(male.csp))
 abline(a=0,b=1,lty=2)
 for(i in 1:nrow(na.omit(male.csp))) lines(rep(na.omit(male.csp$csp[i]),2), c(csp.ppp.mu.PI[1,i],csp.ppp.mu.PI[2,i]), col="red3")
-mtext("observed concurrent sexual partners",side=1,line=2,cex=1)
+mtext("observed concurrent sexual partners",side=1,line=2,cex=0.9)
 mtext("B",side=3,line=0,cex=1.5)
 
 dens(sm.extract$s_clustno, xlab="", main="",ylim=c(0,6),xlim=c(0,1))
@@ -514,12 +514,20 @@ text(0.6, 2.8,"Household")
 mtext("variance",side=1,line=2,cex=1)
 mtext("D",side=3,line=0,cex=1.5)
 
+#area under the ROC curve (AUC)
+
+
 #-------------------------------------------------------------------------------------
-#counterfactual plot (marginal posterior predictions) of each predictor of sm (main text figure)
+#counterfactual plot of each predictor on serial monogamy and concurrent sexual partnership (main text figure)
 #-------------------------------------------------------------------------------------
 cov.par=c("Age","Education","Employment","Travel","Circumcision","Marriage","Sexual_debut","Child_desire","Paid_sex")
 cov.seq3=seq.int(from=1, to=3, length.out=30)
 cov.seq2=seq.int(from=1, to=2, length.out=30)
+
+for(i in colnames(csp.extract[,1:21])){
+  plot(logistic(csp.extract[[i]]), col="red3", xlab="",ylab="",main="",type="l",ylim=c(0,1))
+  mtext(par.values[[i]],side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7)
+};remove(i);remove(par.values)
 
 agegp.pred.sm <- data_frame(clustno=mean(male.sm$clustno),houseno=mean(male.sm$houseno),agegp=cov.seq3,
 educ=mean(na.omit(male.sm$educ)),employ=mean(na.omit(male.sm$employ)),travel=mean(na.omit(male.sm$travel)),
