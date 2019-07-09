@@ -12,7 +12,7 @@ male.label <-as_tibble(read.dta13("/Users/dthindwa/Rproject/drivenHIV/data/male.
 
 #subset the dataset to get all potential covariates
 male.label <-select(male.label,mv766b,mv854a,mv001,mv002,mv012,mv025,mv106,mv731,mv130,mv190,mv167,mv213,mv761,mv483,
-                 mv501,mv525,mv602,mv605,mv754cp,mv754dp,mv770,mv826a,mv793,mv793A,hiv03,mv822,mv834a)
+                 mv501,mv525,mv602,mv605,mv754cp,mv754dp,mv770,mv826a,mv793,mv793a,hiv03,mv822,mv834a)
 
 #rename variables for appropriate use in the models
 colnames(male.label) <-c("mcsp","csp","clustno","houseno","age","resid","educ","employ","rel","windex","travel",
@@ -65,6 +65,13 @@ male.label$fertpref <-recode_factor(male.label$fertpref,`1`="no",`2`="yes",`3`="
 #Paid sex
 male.label$paidsex <-recode_factor(male.label$paidsex,`no`="1",`yes`="2")
 male.label$paidsex <-recode_factor(male.label$paidsex,`1`="no",`2`="yes")
+
+#Quick descriptive statistics for discussion section
+male.label %>% tabyl(condom,sm,show_na=FALSE) #condom use among serial monogamers
+male.label %>% tabyl(condom,csp,show_na=FALSE) #condom use among concurrent sexual partnerships
+male.label %>% tabyl(windex,sm,show_na=FALSE) #wealth index among serial monogamers
+male.label %>% tabyl(windex,csp,show_na=FALSE) #wealth index among concurrent sexual partnership
+male.label %>% tabyl(hiv_1part,educ,show_na=FALSE) #HIV knowledge vs. education level
 
 #====================TABULATE COVARIATES BY OUTCOME VARIABLE (TABLE 1.0)====================
 
@@ -474,7 +481,7 @@ for(i in colnames(csp.extract[,1:21])){
   mtext(par.values[[i]],side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7)
 };remove(i);remove(par.values)
 
-#Posterior predictive and varying effects checks (supplementary figure 4)
+#Posterior predictive checks and varying effects plots  (supplementary figure 4)
 dev.off()
 par(mfrow=c(2,2),mai = c(0.6, 0.8, 0.3, 0.1))
 
