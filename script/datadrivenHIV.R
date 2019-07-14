@@ -5,7 +5,7 @@
 
 #====================LOAD REQUIRED PACKAGES AND DATASET====================
 
-DDHP.packages <-c("foreign","tidyverse","janitor","readstata13","rethinking","rstan","plyr","DataCombine")
+DDHP.packages <-c("foreign","tidyverse","janitor","readstata13","rethinking","rstan","plyr","DataCombine", "pROC")
 lapply(DDHP.packages, library, character.only=TRUE)
 
 #load male questionnaire csv
@@ -405,339 +405,47 @@ for(i in colnames(csp.extract[,1:21])){
   mtext(par.values[[i]],side=1,line=2,cex=0.8); mtext("Probability",side=2,line=2,cex=0.8)
 };remove(i);remove(par.values)
 
-#Posterior predictive checks and varying effects plots  (supplementary figure 4)
+#Posterior predictive and variance checks  (supplementary figure 5)
 dev.off()
 par(mfrow=c(2,2),mai = c(0.6, 0.8, 0.3, 0.1))
 
 sm.link <- link(sm.model4p, data=na.omit(male.sm))
 sm.mean <- apply(sm.link,2,mean)
-sm.PI <- apply(sm.link,2,PI)
-sm.sim <- sim(sm.model4p, n=10)
-sm.CI <- apply(sm.sim,2,PI)
-plot(sm.mean ~ sm , col=rangi2, ylim=range(sm.PI),xlab="",ylab="predicted serial monogamy", data=na.omit(male.sm))
-abline(a=0,b=1,lty=2)
-for(i in 1:nrow(na.omit(male.sm))) lines(rep(na.omit(male.sm$sm[i]),2), c(sm.PI[1,i],sm.PI[2,i]), col="red3")
-mtext("observed serial monogamy",side=1,line=2,cex=0.9)
-mtext("A",side=3,line=0,cex=1.5)
+sm.auc <- data.frame(sm.mean, male.sm$sm)
+sm.roc.obj <- roc(sm.auc$male.sm.sm, sm.auc$sm.mean) #create a ROC curve
+auc(sm.roc.obj) #calculates AUC
+plot(1-sm.roc.obj$specificities,sm.roc.obj$sensitivities, col="blue3",xlab="",ylab="",type='l', lwd=2) #plots area under the ROC curve
+abline(0,1, col="black", lwd=1, lty=2)
+mtext("1-specificity",side=1,line=2,cex=0.9)
+mtext("sensitivity",side=2,line=3,cex=0.9)
+mtext("A",side=3,line=0,cex=1.3)
+text(0.6, 0.2, labels=sprintf("AUC: %0.3f", auc(sm.roc.obj)), col="blue3")
 
-csp.ppp.mu <- link(csp.model4p)
-csp.ppp.mu.mean <- apply(csp.ppp.mu,2,mean)
-csp.ppp.mu.PI <- apply(csp.ppp.mu,2,PI)
-csp.ppp.sim <- sim(csp.model4p, n=10)
-csp.ppp.CI <- apply(csp.ppp.sim,2,PI)
-plot(csp.ppp.mu.mean ~ csp , col=rangi2, ylim=range(csp.ppp.mu.PI),xlab="",ylab="predicted concurrent sexual partners", data=na.omit(male.csp))
-abline(a=0,b=1,lty=2)
-for(i in 1:nrow(na.omit(male.csp))) lines(rep(na.omit(male.csp$csp[i]),2), c(csp.ppp.mu.PI[1,i],csp.ppp.mu.PI[2,i]), col="red3")
-mtext("observed concurrent sexual partners",side=1,line=2,cex=0.9)
-mtext("B",side=3,line=0,cex=1.5)
+csp.link <- link(csp.model4p, data=na.omit(male.csp))
+csp.mean <- apply(csp.link,2,mean)
+csp.auc <- data.frame(csp.mean, male.csp$csp)
+csp.roc.obj <- roc(csp.auc$male.csp.csp, csp.auc$csp.mean) #create a ROC curve
+auc(csp.roc.obj) #calculates AUC
+plot(1-csp.roc.obj$specificities,csp.roc.obj$sensitivities, col="red3",xlab="",ylab="",type='l', lwd=2) #plots area under the ROC curve
+abline(0,1, col="black", lwd=1, lty=2)
+mtext("1-specificity",side=1,line=2,cex=0.9)
+mtext("sensitivity",side=2,line=3,cex=0.9)
+mtext("B",side=3,line=0,cex=1.3)
+text(0.6, 0.2, labels=sprintf("AUC: %0.3f", auc(csp.roc.obj)), col="red3")
 
-dens(sm.extract$s_clustno, xlab="", main="",ylim=c(0,6),xlim=c(0,1))
-dens(sm.extract$s_houseno, col=rangi2, lwd=2, add=TRUE)
-text(0.3,6,"Enumeration area", col=rangi2)
-text(0.70, 4.5,"Household")
-mtext("variance",side=1,line=2,cex=1)
-mtext("C",side=3,line=0,cex=1.5)
+dens(sm.extract$s_clustno, xlab="", lwd=2, main="",ylim=c(0,6),xlim=c(0,1))
+dens(sm.extract$s_houseno, col="blue3", lwd=2, add=TRUE)
+text(0.70, 4.5,"Enumeration area")
+text(0.1,6,"Household",col="blue3")
+mtext("variance",side=1,line=2,cex=0.9)
+mtext("C",side=3,line=0,cex=1.3)
 
-dens(csp.extract$s_clustno, xlab="", main="",ylim=c(0,6),xlim=c(0,1))
-dens(csp.extract$s_houseno, col=rangi2, lwd=2, add=TRUE)
-text(0.3,4.3,"Enumeration area", col=rangi2)
-text(0.6, 2.8,"Household")
-mtext("variance",side=1,line=2,cex=1)
-mtext("D",side=3,line=0,cex=1.5)
+dens(csp.extract$s_clustno, xlab="", lwd=2, main="",ylim=c(0,6),xlim=c(0,1))
+dens(csp.extract$s_houseno, col="red3", lwd=2, add=TRUE)
+text(0.6, 2.8,"Enumeration area")
+text(0.1,4.4,"Household",col="red3")
+mtext("variance",side=1,line=2,cex=0.9)
+mtext("D",side=3,line=0,cex=1.3)
 
-#area under the ROC curve (AUC)
-
-
-#-------------------------------------------------------------------------------------
-#counterfactual plot of each predictor on serial monogamy and concurrent sexual partnership (main text figure)
-#-------------------------------------------------------------------------------------
-cov.par=c("Age","Education","Employment","Travel","Circumcision","Marriage","Sexual_debut","Child_desire","Paid_sex")
-cov.seq3=seq.int(from=1, to=3, length.out=30)
-cov.seq2=seq.int(from=1, to=2, length.out=30)
-
-for(i in colnames(csp.extract[,1:21])){
-  plot(logistic(csp.extract[[i]]), col="red3", xlab="",ylab="",main="",type="l",ylim=c(0,1))
-  mtext(par.values[[i]],side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7)
-};remove(i);remove(par.values)
-
-agegp.pred.sm <- data_frame(clustno=mean(male.sm$clustno),houseno=mean(male.sm$houseno),agegp=cov.seq3,
-educ=mean(na.omit(male.sm$educ)),employ=mean(na.omit(male.sm$employ)),travel=mean(na.omit(male.sm$travel)),
-mmc=mean(na.omit(male.sm$mmc)),mstatus=mean(na.omit(male.sm$mstatus)),agesexgp=mean(na.omit(male.sm$agesexgp)),
-fertpref=mean(na.omit(male.sm$fertpref)),paidsex=mean(na.omit(male.sm$paidsex)))
-
-agegp.pred.csp <- data_frame(clustno=mean(male.csp$clustno),houseno=mean(male.csp$houseno),agegp=cov.seq3,
-educ=mean(na.omit(male.csp$educ)),employ=mean(na.omit(male.csp$employ)),travel=mean(na.omit(male.csp$travel)),
-mmc=mean(na.omit(male.csp$mmc)),mstatus=mean(na.omit(male.csp$mstatus)),agesexgp=mean(na.omit(male.csp$agesexgp)),
-fertpref=mean(na.omit(male.csp$fertpref)),paidsex=mean(na.omit(male.csp$paidsex)))
-
-sm.agegp.mu <- link(sm.model4, data=agegp.pred.sm)
-sm.agegp.mean <- apply(sm.agegp.mu,2,mean)
-sm.agegp.PI <- apply(sm.agegp.mu,2,PI,prob=0.95)
-csp.agegp.mu <- link(csp.model4, data=agegp.pred.csp)
-csp.agegp.mean <- apply(csp.agegp.mu,2,mean)
-csp.agegp.PI <- apply(csp.agegp.mu,2,PI,prob=0.95)
-
-sm.agegp.sim <- sim(sm.model4, data=agegp.pred.sm)
-sm.agegp.CI <- apply(sm.agegp.sim,2,PI,prob=0.95)
-csp.agegp.sim <- sim(csp.model4, data=agegp.pred.csp)
-csp.agegp.CI <- apply(csp.agegp.sim,2,PI,prob=0.95)
-#-------------------------------------------------------------------------------------
-educ.pred.sm <- data_frame(clustno=mean(male.sm$clustno),houseno=mean(male.sm$houseno),educ=cov.seq3,
-agegp=mean(na.omit(male.sm$agegp)),employ=mean(na.omit(male.sm$employ)),travel=mean(na.omit(male.sm$travel)),
-mmc=mean(na.omit(male.sm$mmc)),mstatus=mean(na.omit(male.sm$mstatus)),agesexgp=mean(na.omit(male.sm$agesexgp)),
-fertpref=mean(na.omit(male.sm$fertpref)),paidsex=mean(na.omit(male.sm$paidsex)))
-
-educ.pred.csp <- data_frame(clustno=mean(male.csp$clustno),houseno=mean(male.csp$houseno),educ=cov.seq3,
-agegp=mean(na.omit(male.csp$agegp)),employ=mean(na.omit(male.csp$employ)),travel=mean(na.omit(male.csp$travel)),
-mmc=mean(na.omit(male.csp$mmc)),mstatus=mean(na.omit(male.csp$mstatus)),agesexgp=mean(na.omit(male.csp$agesexgp)),
-fertpref=mean(na.omit(male.csp$fertpref)),paidsex=mean(na.omit(male.csp$paidsex)))
-
-sm.educ.mu <- link(sm.model4, data=educ.pred.sm)
-sm.educ.mean <- apply(sm.educ.mu,2,mean)
-sm.educ.PI <- apply(sm.educ.mu,2,PI,prob=0.95)
-csp.educ.mu <- link(csp.model4, data=educ.pred.csp)
-csp.educ.mean <- apply(csp.educ.mu,2,mean)
-csp.educ.PI <- apply(csp.educ.mu,2,PI,prob=0.95)
-
-sm.educ.sim <- sim(sm.model4, data=educ.pred.sm)
-sm.educ.CI <- apply(sm.educ.sim,2,PI,prob=0.95)
-csp.educ.sim <- sim(csp.model4, data=educ.pred.csp)
-csp.educ.CI <- apply(csp.educ.sim,2,PI,prob=0.95)
-#-------------------------------------------------------------------------------------
-employ.pred.sm <- data_frame(clustno=mean(male.sm$clustno),houseno=mean(male.sm$houseno),employ=cov.seq2,
-agegp=mean(na.omit(male.sm$agegp)),educ=mean(na.omit(male.sm$educ)),travel=mean(na.omit(male.sm$travel)),
-mmc=mean(na.omit(male.sm$mmc)),mstatus=mean(na.omit(male.sm$mstatus)),agesexgp=mean(na.omit(male.sm$agesexgp)),
-fertpref=mean(na.omit(male.sm$fertpref)),paidsex=mean(na.omit(male.sm$paidsex)))
-
-employ.pred.csp <- data_frame(clustno=mean(male.csp$clustno),houseno=mean(male.csp$houseno),employ=cov.seq2,
-agegp=mean(na.omit(male.csp$agegp)),educ=mean(na.omit(male.csp$educ)),travel=mean(na.omit(male.csp$travel)),
-mmc=mean(na.omit(male.csp$mmc)),mstatus=mean(na.omit(male.csp$mstatus)),agesexgp=mean(na.omit(male.csp$agesexgp)),
-fertpref=mean(na.omit(male.csp$fertpref)),paidsex=mean(na.omit(male.csp$paidsex)))
-
-sm.employ.mu <- link(sm.model4, data=employ.pred.sm)
-sm.employ.mean <- apply(sm.employ.mu,2,mean)
-sm.employ.PI <- apply(sm.employ.mu,2,PI,prob=0.95)
-csp.employ.mu <- link(csp.model4, data=employ.pred.csp)
-csp.employ.mean <- apply(csp.employ.mu,2,mean)
-csp.employ.PI <- apply(csp.employ.mu,2,PI,prob=0.95)
-
-sm.employ.sim <- sim(sm.model4, data=employ.pred.sm)
-sm.employ.CI <- apply(sm.employ.sim,2,PI,prob=0.95)
-csp.employ.sim <- sim(csp.model4, data=employ.pred.csp)
-csp.employ.CI <- apply(csp.employ.sim,2,PI,prob=0.95)
-#-------------------------------------------------------------------------------------
-travel.pred.sm <- data_frame(clustno=mean(male.sm$clustno),houseno=mean(male.sm$houseno),travel=cov.seq3,
-agegp=mean(na.omit(male.sm$agegp)),educ=mean(na.omit(male.sm$educ)),employ=mean(na.omit(male.sm$employ)),
-mmc=mean(na.omit(male.sm$mmc)),mstatus=mean(na.omit(male.sm$mstatus)),agesexgp=mean(na.omit(male.sm$agesexgp)),
-fertpref=mean(na.omit(male.sm$fertpref)),paidsex=mean(na.omit(male.sm$paidsex)))
-
-travel.pred.csp <- data_frame(clustno=mean(male.csp$clustno),houseno=mean(male.csp$houseno),travel=cov.seq3,
-agegp=mean(na.omit(male.csp$agegp)),educ=mean(na.omit(male.csp$educ)),employ=mean(na.omit(male.csp$employ)),
-mmc=mean(na.omit(male.csp$mmc)),mstatus=mean(na.omit(male.csp$mstatus)),agesexgp=mean(na.omit(male.csp$agesexgp)),
-fertpref=mean(na.omit(male.csp$fertpref)),paidsex=mean(na.omit(male.csp$paidsex)))
-
-sm.travel.mu <- link(sm.model4, data=travel.pred.sm)
-sm.travel.mean <- apply(sm.travel.mu,2,mean)
-sm.travel.PI <- apply(sm.travel.mu,2,PI,prob=0.95)
-csp.travel.mu <- link(csp.model4, data=travel.pred.csp)
-csp.travel.mean <- apply(csp.travel.mu,2,mean)
-csp.travel.PI <- apply(csp.travel.mu,2,PI,prob=0.95)
-
-sm.travel.sim <- sim(sm.model4, data=travel.pred.sm)
-sm.travel.CI <- apply(sm.travel.sim,2,PI,prob=0.95)
-csp.travel.sim <- sim(csp.model4, data=travel.pred.csp)
-csp.travel.CI <- apply(csp.travel.sim,2,PI,prob=0.95)
-#-------------------------------------------------------------------------------------
-mmc.pred.sm <- data_frame(clustno=mean(male.sm$clustno),houseno=mean(male.sm$houseno),mmc=cov.seq2,
-agegp=mean(na.omit(male.sm$agegp)),educ=mean(na.omit(male.sm$educ)),employ=mean(na.omit(male.sm$employ)),
-travel=mean(na.omit(male.sm$travel)),mstatus=mean(na.omit(male.sm$mstatus)),agesexgp=mean(na.omit(male.sm$agesexgp)),
-fertpref=mean(na.omit(male.sm$fertpref)),paidsex=mean(na.omit(male.sm$paidsex)))
-
-mmc.pred.csp <- data_frame(clustno=mean(male.csp$clustno),houseno=mean(male.csp$houseno),mmc=cov.seq2,
-agegp=mean(na.omit(male.csp$agegp)),educ=mean(na.omit(male.csp$educ)),employ=mean(na.omit(male.csp$employ)),
-travel=mean(na.omit(male.csp$travel)),mstatus=mean(na.omit(male.csp$mstatus)),agesexgp=mean(na.omit(male.csp$agesexgp)),
-fertpref=mean(na.omit(male.csp$fertpref)),paidsex=mean(na.omit(male.csp$paidsex)))
-
-sm.mmc.mu <- link(sm.model4, data=mmc.pred.sm)
-sm.mmc.mean <- apply(sm.mmc.mu,2,mean)
-sm.mmc.PI <- apply(sm.mmc.mu,2,PI,prob=0.95)
-csp.mmc.mu <- link(csp.model4, data=mmc.pred.csp)
-csp.mmc.mean <- apply(csp.mmc.mu,2,mean)
-csp.mmc.PI <- apply(csp.mmc.mu,2,PI,prob=0.95)
-
-sm.mmc.sim <- sim(sm.model4, data=mmc.pred.sm)
-sm.mmc.CI <- apply(sm.mmc.sim,2,PI,prob=0.95)
-csp.mmc.sim <- sim(csp.model4, data=mmc.pred.csp)
-csp.mmc.CI <- apply(csp.mmc.sim,2,PI,prob=0.95)
-#-------------------------------------------------------------------------------------
-mstatus.pred.sm <- data_frame(clustno=mean(male.sm$clustno),houseno=mean(male.sm$houseno),mstatus=cov.seq2,
-agegp=mean(na.omit(male.sm$agegp)),educ=mean(na.omit(male.sm$educ)),employ=mean(na.omit(male.sm$employ)),
-travel=mean(na.omit(male.sm$travel)),mmc=mean(na.omit(male.sm$mmc)),agesexgp=mean(na.omit(male.sm$agesexgp)),
-fertpref=mean(na.omit(male.sm$fertpref)),paidsex=mean(na.omit(male.sm$paidsex)))
-
-mstatus.pred.csp <- data_frame(clustno=mean(male.csp$clustno),houseno=mean(male.csp$houseno),mstatus=cov.seq2,
-agegp=mean(na.omit(male.csp$agegp)),educ=mean(na.omit(male.csp$educ)),employ=mean(na.omit(male.csp$employ)),
-travel=mean(na.omit(male.csp$travel)),mmc=mean(na.omit(male.csp$mmc)),agesexgp=mean(na.omit(male.csp$agesexgp)),
-fertpref=mean(na.omit(male.csp$fertpref)),paidsex=mean(na.omit(male.csp$paidsex)))
-
-sm.mstatus.mu <- link(sm.model4, data=mstatus.pred.sm)
-sm.mstatus.mean <- apply(sm.mstatus.mu,2,mean)
-sm.mstatus.PI <- apply(sm.mstatus.mu,2,PI,prob=0.95)
-csp.mstatus.mu <- link(csp.model4, data=mstatus.pred.csp)
-csp.mstatus.mean <- apply(csp.mstatus.mu,2,mean)
-csp.mstatus.PI <- apply(csp.mstatus.mu,2,PI,prob=0.95)
-
-sm.mstatus.sim <- sim(sm.model4, data=mstatus.pred.sm)
-sm.mstatus.CI <- apply(sm.mstatus.sim,2,PI,prob=0.95)
-csp.mstatus.sim <- sim(csp.model4, data=mstatus.pred.csp)
-csp.mstatus.CI <- apply(csp.mstatus.sim,2,PI,prob=0.95)
-#-------------------------------------------------------------------------------------
-agesexgp.pred.sm <- data_frame(clustno=mean(male.sm$clustno),houseno=mean(male.sm$houseno),agesexgp=cov.seq3,
-agegp=mean(na.omit(male.sm$agegp)),educ=mean(na.omit(male.sm$educ)),employ=mean(na.omit(male.sm$employ)),
-travel=mean(na.omit(male.sm$travel)),mmc=mean(na.omit(male.sm$mmc)),mstatus=mean(na.omit(male.sm$mstatus)),
-fertpref=mean(na.omit(male.sm$fertpref)),paidsex=mean(na.omit(male.sm$paidsex)))
-
-agesexgp.pred.csp <- data_frame(clustno=mean(male.csp$clustno),houseno=mean(male.csp$houseno),agesexgp=cov.seq3,
-agegp=mean(na.omit(male.csp$agegp)),educ=mean(na.omit(male.csp$educ)),employ=mean(na.omit(male.csp$employ)),
-travel=mean(na.omit(male.csp$travel)),mmc=mean(na.omit(male.csp$mmc)),mstatus=mean(na.omit(male.csp$mstatus)),
-fertpref=mean(na.omit(male.csp$fertpref)),paidsex=mean(na.omit(male.csp$paidsex)))
-
-sm.agesexgp.mu <- link(sm.model4, data=agesexgp.pred.sm)
-sm.agesexgp.mean <- apply(sm.agesexgp.mu,2,mean)
-sm.agesexgp.PI <- apply(sm.agesexgp.mu,2,PI,prob=0.95)
-csp.agesexgp.mu <- link(csp.model4, data=agesexgp.pred.csp)
-csp.agesexgp.mean <- apply(csp.agesexgp.mu,2,mean)
-csp.agesexgp.PI <- apply(csp.agesexgp.mu,2,PI,prob=0.95)
-
-sm.agesexgp.sim <- sim(sm.model4, data=agesexgp.pred.sm)
-sm.agesexgp.CI <- apply(sm.agesexgp.sim,2,PI,prob=0.95)
-csp.agesexgp.sim <- sim(csp.model4, data=agesexgp.pred.csp)
-csp.agesexgp.CI <- apply(csp.agesexgp.sim,2,PI,prob=0.95)
-#-------------------------------------------------------------------------------------
-fertpref.pred.sm <- data_frame(clustno=mean(male.sm$clustno),houseno=mean(male.sm$houseno),fertpref=cov.seq2,
-agegp=mean(na.omit(male.sm$agegp)),educ=mean(na.omit(male.sm$educ)),employ=mean(na.omit(male.sm$employ)),
-travel=mean(na.omit(male.sm$travel)),mmc=mean(na.omit(male.sm$mmc)),mstatus=mean(na.omit(male.sm$mstatus)),
-agesexgp=mean(na.omit(male.sm$agesexgp)),paidsex=mean(na.omit(male.sm$paidsex)))
-
-fertpref.pred.csp <- data_frame(clustno=mean(male.csp$clustno),houseno=mean(male.csp$houseno),fertpref=cov.seq2,
-agegp=mean(na.omit(male.csp$agegp)),educ=mean(na.omit(male.csp$educ)),employ=mean(na.omit(male.csp$employ)),
-travel=mean(na.omit(male.csp$travel)),mmc=mean(na.omit(male.csp$mmc)),mstatus=mean(na.omit(male.csp$mstatus)),
-agesexgp=mean(na.omit(male.csp$agesexgp)),paidsex=mean(na.omit(male.csp$paidsex)))
-
-sm.fertpref.mu <- link(sm.model4, data=fertpref.pred.sm)
-sm.fertpref.mean <- apply(sm.fertpref.mu,2,mean)
-sm.fertpref.PI <- apply(sm.fertpref.mu,2,PI,prob=0.95)
-csp.fertpref.mu <- link(csp.model4, data=fertpref.pred.csp)
-csp.fertpref.mean <- apply(csp.fertpref.mu,2,mean)
-csp.fertpref.PI <- apply(csp.fertpref.mu,2,PI,prob=0.95)
-
-sm.fertpref.sim <- sim(sm.model4, data=fertpref.pred.sm)
-sm.fertpref.CI <- apply(sm.fertpref.sim,2,PI,prob=0.95)
-csp.fertpref.sim <- sim(csp.model4, data=fertpref.pred.csp)
-csp.fertpref.CI <- apply(csp.fertpref.sim,2,PI,prob=0.95)
-#-------------------------------------------------------------------------------------
-paidsex.pred.sm <- data_frame(clustno=mean(male.sm$clustno),houseno=mean(male.sm$houseno),paidsex=cov.seq2,
-agegp=mean(na.omit(male.sm$agegp)),educ=mean(na.omit(male.sm$educ)),employ=mean(na.omit(male.sm$employ)),
-travel=mean(na.omit(male.sm$travel)),mmc=mean(na.omit(male.sm$mmc)),mstatus=mean(na.omit(male.sm$mstatus)),
-agesexgp=mean(na.omit(male.sm$agesexgp)),fertpref=mean(na.omit(male.sm$fertpref)))
-
-paidsex.pred.csp <- data_frame(clustno=mean(male.csp$clustno),houseno=mean(male.csp$houseno),paidsex=cov.seq2,
-agegp=mean(na.omit(male.csp$agegp)),educ=mean(na.omit(male.csp$educ)),employ=mean(na.omit(male.csp$employ)),
-travel=mean(na.omit(male.csp$travel)),mmc=mean(na.omit(male.csp$mmc)),mstatus=mean(na.omit(male.csp$mstatus)),
-agesexgp=mean(na.omit(male.csp$agesexgp)),fertpref=mean(na.omit(male.csp$fertpref)))
-
-sm_paidsex.mu <- link(sm.model4, data=paidsex.pred.sm)
-sm_paidsex.mean <- apply(sm_paidsex.mu,2,mean)
-sm_paidsex.PI <- apply(sm_paidsex.mu,2,PI,prob=0.95)
-csp_paidsex.mu <- link(csp.model4, data=paidsex.pred.csp)
-csp_paidsex.mean <- apply(csp_paidsex.mu,2,mean)
-csp_paidsex.PI <- apply(csp_paidsex.mu,2,PI,prob=0.95)
-
-sm_paidsex.sim <- sim(sm.model4, data=paidsex.pred.sm)
-sm_paidsex.CI <- apply(sm_paidsex.sim,2,PI,prob=0.95)
-csp_paidsex.sim <- sim(csp.model4, data=paidsex.pred.csp)
-csp_paidsex.CI <- apply(csp_paidsex.sim,2,PI,prob=0.95)
-#-------------------------------------------------------------------------------------
-
-dev.off()
-par(mfrow=c(3,3),mai = c(0.5, 0.5, 0.2, 0.1))
-plot(sm ~ agegp, data=male.label,pch=16,col=rangi2, type="n",xlab="",ylab="")
-mtext("Age",side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7); mtext("A",side=3,line=0); 
-shade(sm.agegp.PI,cov.seq3,col="lightblue")
-lines(cov.seq3,sm.agegp.mean, col="darkblue",lwd=3)
-lines(cov.seq3,csp.agegp.mean, col="red3",lwd=3,lty="dotted")
-shade(csp.agegp.PI,cov.seq3,col=rainbow(70, alpha = 0.3))
-legend("topleft", legend=c("SM", "CSP"), col=c("darkblue", "red3"), lty=1:1, cex=0.7, lwd=2)
-
-plot(sm ~ educ, data=male.label, type="n",xlab="",ylab="")
-mtext("Education",side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7); mtext("B",side=3,line=0);
-shade(sm.educ.PI,cov.seq3,col="lightblue")
-lines(cov.seq3,sm.educ.mean, col="darkblue",lwd=3)
-lines(cov.seq3,csp.educ.mean, col="red3",lwd=3,lty="dotted")
-shade(csp.educ.PI,cov.seq3,col=rainbow(70, alpha = 0.4))
-legend("topleft", legend=c("SM", "CSP"), col=c("darkblue", "red3"), lty=1:1, cex=0.7, lwd=2)
-
-plot(sm ~ employ, data=male.label, type="n",xlab="",ylab="")
-mtext("Employment",side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7); mtext("C",side=3,line=0);
-shade(sm.employ.PI,cov.seq2,col="lightblue")
-lines(cov.seq2,sm.employ.mean, col="darkblue",lwd=3)
-lines(cov.seq2,csp.employ.mean, col="red3",lwd=3,lty="dotted")
-shade(csp.employ.PI,cov.seq2,col=rainbow(70, alpha = 0.4))
-legend("topleft", legend=c("SM", "CSP"), col=c("darkblue", "red3"), lty=1:1, cex=0.7, lwd=2)
-
-plot(sm ~ travel, data=male.label, type="n",xlab="",ylab="")
-mtext("Travel away from home",side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7); mtext("D",side=3,line=0);
-shade(sm.travel.PI,cov.seq3,col="lightblue")
-lines(cov.seq3,sm.travel.mean, col="darkblue",lwd=3)
-lines(cov.seq3,csp.travel.mean, col="red3",lwd=3,lty="dotted")
-shade(csp.travel.PI,cov.seq3,col=rainbow(70, alpha = 0.4))
-legend("topleft", legend=c("SM", "CSP"), col=c("darkblue", "red3"), lty=1:1, cex=0.7, lwd=2)
-
-plot(sm ~ mmc, data=male.label, type="n",xlab="",ylab="")
-mtext("Circumcision",side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7); mtext("E",side=3,line=0);
-shade(sm.mmc.PI,cov.seq2,col="lightblue")
-lines(cov.seq2,sm.mmc.mean, col="darkblue",lwd=3)
-lines(cov.seq2,csp.mmc.mean, col="red3",lwd=3,lty="dotted")
-shade(csp.mmc.PI,cov.seq2,col=rainbow(70, alpha = 0.4))
-legend("topleft", legend=c("SM", "CSP"), col=c("darkblue", "red3"), lty=1:1, cex=0.7, lwd=2)
-
-plot(sm ~ mstatus, data=male.label, type="n",xlab="",ylab="")
-mtext("Marital status",side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7); mtext("F",side=3,line=0);
-shade(sm.mstatus.PI,cov.seq2,col="lightblue")
-lines(cov.seq2,sm.mstatus.mean, col="darkblue",lwd=3)
-lines(cov.seq2,csp.mstatus.mean, col="red3",lwd=3,lty="dotted")
-shade(csp.mstatus.PI,cov.seq2,col=rainbow(70, alpha = 0.4))
-legend("topleft", legend=c("SM", "CSP"), col=c("darkblue", "red3"), lty=1:1, cex=0.7, lwd=2)
-
-plot(sm ~ agesexgp, data=male.label, type="n",xlab="",ylab="")
-mtext("Age at sexual debut",side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7); mtext("G",side=3,line=0)
-shade(sm.agesexgp.PI,cov.seq3,col="lightblue")
-lines(cov.seq3,sm.agesexgp.mean, col="darkblue",lwd=3)
-lines(cov.seq3,csp.agesexgp.mean, col="red3",lwd=3,lty="dotted")
-shade(csp.agesexgp.PI,cov.seq3,col=rainbow(70, alpha = 0.4))
-legend("topleft", legend=c("SM", "CSP"), col=c("darkblue", "red3"), lty=1:1, cex=0.7, lwd=2)
-
-plot(sm ~ fertpref, data=male.label, type="n",xlab="",ylab="")
-mtext("Child desire",side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7); mtext("H",side=3,line=0)
-shade(sm.fertpref.PI,cov.seq2,col="lightblue")
-lines(cov.seq2,sm.fertpref.mean, col="darkblue",lwd=3)
-lines(cov.seq2,csp.fertpref.mean, col="red3",lwd=3,lty="dotted")
-shade(csp.fertpref.PI,cov.seq2,col=rainbow(70, alpha = 0.4))
-legend("topleft", legend=c("SM", "CSP"), col=c("darkblue", "red3"), lty=1:1, cex=0.7, lwd=2)
-
-plot(sm ~ paidsex, data=male.label, type="n",xlab="",ylab="")
-mtext("Paid sex",side=1,line=2,cex=0.7); mtext("Probability",side=2,line=2,cex=0.7); mtext("I",side=3,line=0)
-shade(sm_paidsex.PI,cov.seq2,col="lightblue")
-lines(cov.seq2,sm_paidsex.mean, col="darkblue",lwd=3)
-lines(cov.seq2,csp_paidsex.mean, col="red3",lwd=3,lty="dotted")
-shade(csp_paidsex.PI,cov.seq2,col=rainbow(70, alpha = 0.4))
-legend("topleft", legend=c("SM", "CSP"), col=c("darkblue", "red3"), lty=1:1, cex=0.7, lwd=2)
-
-#-------------------------------------------------------------------------------------
-
-
-
-
-
-
-    
+#End Script
+#=========================================================================
