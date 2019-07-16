@@ -1,6 +1,6 @@
 # Predictors of serial and concurrent heterosexual partnership risks among Malawian men: A multilevel Bayesian analysis study.
 
-Abstract
+Authors: Deus Thindwa, Jessie J. Khaki, Michael G. Chipeta.
 
 Introduction: 
 HIV incidence in Malawi is disproportionately higher in women than men. Although the source of this disparity is not well-understood, we hypothesize it may be linked to serial and concurrent heterosexual partnerships as men are 13-fold likely than women to report multiple sexual partners, thus, introducing new transmission pathways. We aimed to identify factors that predict the risk of serial and concurrent sexual partnerships among Malawian men.
